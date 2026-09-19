@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appointments — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="appointments.title">Appointments</h1>
+      <p class="page-header__desc" data-i18n="appointments.desc">Manage and track all patient appointments</p>
+    </div>
+    <div class="page-header__actions">
+      <button class="btn btn-primary" data-modal-open="bookingWizardModal"><span class="icon-plus"></span><span data-i18n="appointments.new_appointment">New Appointment</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div class="search-bar" style="max-width:320px;">
+        <span class="icon-search"></span>
+        <input type="text" id="searchInput" data-i18n-placeholder="common.search" placeholder="Search">
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <div class="dropdown">
+          <button class="dropdown-toggle" data-dropdown-toggle><span class="icon-filter"></span><span id="statusFilterLabel" data-i18n="common.status">Status</span><span class="icon-chevron"></span></button>
+          <div class="dropdown-menu" id="statusFilterMenu"></div>
+        </div>
+        <div class="tabs" id="dateTabs" style="border-bottom:none;">
+          <button class="tab active" data-date-filter="all" data-i18n="common.all">All</button>
+          <button class="tab" data-date-filter="2026-09-02" data-i18n="common.today">Today</button>
+          <button class="tab" data-date-filter="upcoming">Upcoming</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th data-i18n="common.patient">Patient</th>
+            <th data-i18n="common.treatment">Treatment</th>
+            <th data-i18n="common.doctor">Doctor</th>
+            <th data-i18n="common.date">Date</th>
+            <th data-i18n="common.time">Time</th>
+            <th data-i18n="common.status">Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden"></div>
+
+    <div class="flex items-center justify-between mt-4" style="margin-top: var(--space-4);">
+      <span class="text-sm text-muted" id="resultsCount"></span>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</template>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/booking-wizard.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'appointments' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+  document.querySelector('.icon-search').innerHTML = ICONS.search;
+  document.querySelector('.icon-filter').innerHTML = ICONS.filter;
+  document.querySelector('.icon-chevron').innerHTML = ICONS.chevronDown;
+
+  let allAppointments = [];
+  let currentPage = 1;
+  const pageSize = 6;
+  let statusFilter = 'all';
+  let dateFilter = 'all';
+  let searchTerm = '';
+
+  const STATUS_OPTIONS = ['all', 'confirmed', 'pending', 'waiting', 'in_progress', 'completed', 'cancelled', 'no_show'];
+
+  function buildStatusMenu() {
+    document.getElementById('statusFilterMenu').innerHTML = STATUS_OPTIONS.map(s => `
+      <button class="dropdown-item" data-status="${s}">${s === 'all' ? I18N.t('common.all') : I18N.t('status.' + s)}</button>
+    `).join('');
+  }
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  function applyFilters() {
+    return allAppointments.filter(a => {
+      if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      if (dateFilter === '2026-09-02' && a.date !== '2026-09-02') return false;
+      if (dateFilter === 'upcoming' && a.date <= '2026-09-02') return false;
+      if (searchTerm && !a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) && !a.treatment.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
+    });
+  }
+
+  function render() {
+    const filtered = applyFilters();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    currentPage = Math.min(currentPage, totalPages);
+    const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    const tbody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const tableWrap = document.querySelector('.table-wrap');
+
+    if (filtered.length === 0) {
+      tableWrap.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__icon">${icon('appointments')}</div>
+          <div class="empty-state__title">${I18N.t('appointments.empty_title')}</div>
+          <div class="empty-state__desc">${I18N.t('appointments.empty_desc')}</div>
+        </div>`;
+    } else {
+      tableWrap.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = pageItems.map(a => `
+        <tr>
+          <td data-label="${I18N.t('common.patient')}"><span class="fw-medium">${a.patientName}</span></td>
+          <td data-label="${I18N.t('common.treatment')}">${a.treatment}</td>
+          <td data-label="${I18N.t('common.doctor')}" class="cell-muted">${a.doctor}</td>
+          <td data-label="${I18N.t('common.date')}" class="cell-muted">${a.date}</td>
+          <td data-label="${I18N.t('common.time')}" class="cell-muted">${a.time}</td>
+          <td data-label="${I18N.t('common.status')}">${statusBadge(a.status)}</td>
+          <td class="cell-actions">
+            <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.view')}">${icon('eye')}</button>
+            <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.edit')}">${icon('edit')}</button>
+            <button class="btn-icon btn-sm tooltip cancel-appt-btn" data-id="${a.id}" data-tooltip="${I18N.t('common.cancel')}">${icon('trash')}</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('resultsCount').textContent = `${filtered.length} results`;
+    const pag = document.getElementById('pagination');
+    let pagHtml = `<button ${currentPage === 1 ? 'disabled' : ''} data-page="prev">${ICONS.chevronLeft}</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      pagHtml += `<button class="${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+    }
+    pagHtml += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="next">${ICONS.chevronRight}</button>`;
+    pag.innerHTML = pagHtml;
+
+    tbody?.querySelectorAll('.cancel-appt-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const ok = await ConfirmDialog.open({
+          title: I18N.t('confirm_dialog.cancel_title'),
+          desc: I18N.t('confirm_dialog.cancel_desc'),
+          confirmLabel: I18N.t('common.confirm'),
+        });
+        if (ok) {
+          const appt = allAppointments.find(x => x.id === btn.getAttribute('data-id'));
+          if (appt) appt.status = 'cancelled';
+          render();
+          Toast.success(I18N.t('toast.deleted_title'), I18N.t('toast.deleted_desc'));
+        }
+      });
+    });
+  }
+
+  document.getElementById('pagination').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn) return;
+    const val = btn.getAttribute('data-page');
+    if (val === 'prev') currentPage--;
+    else if (val === 'next') currentPage++;
+    else currentPage = parseInt(val, 10);
+    render();
+  });
+
+  document.getElementById('statusFilterMenu').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-status]');
+    if (!btn) return;
+    statusFilter = btn.getAttribute('data-status');
+    document.getElementById('statusFilterLabel').textContent = statusFilter === 'all' ? I18N.t('common.status') : I18N.t('status.' + statusFilter);
+    currentPage = 1;
+    render();
+  });
+
+  document.getElementById('dateTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-date-filter]');
+    if (!btn) return;
+    document.querySelectorAll('#dateTabs .tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    dateFilter = btn.getAttribute('data-date-filter');
+    currentPage = 1;
+    render();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    currentPage = 1;
+    render();
+  });
+
+  function loadAppointments() {
+    MOCK_API.getAppointments(clinicId).then(data => {
+      allAppointments = data;
+      buildStatusMenu();
+      render();
+    });
+  }
+  loadAppointments();
+  BookingWizard.mount();
+
+  document.addEventListener('booking:created', loadAppointments);
+  document.addEventListener('i18n:changed', () => { buildStatusMenu(); render(); });
+</script>
+</body>
+</html>

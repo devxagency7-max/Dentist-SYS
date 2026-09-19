@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-dashboard">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="dashboard.title">Dashboard</h1>
+      <p class="page-header__desc" data-i18n="dashboard.welcome">Welcome back, here is what is happening today.</p>
+    </div>
+    <div class="page-header__actions">
+      <button class="btn btn-secondary">__ICON_PRINTER__<span data-i18n="common.export">Export</span></button>
+      <button class="btn btn-primary" data-modal-open="bookingWizardModal">__ICON_PLUS__<span data-i18n="appointments.new_appointment">New Appointment</span></button>
+    </div>
+  </div>
+
+  <div class="grid-stats" id="statsGrid"></div>
+
+  <div class="grid-2">
+    <div class="flex flex-col gap-6">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title" data-i18n="dashboard.upcoming_appointments">Today's Appointments</div>
+          </div>
+          <a href="appointments.html" class="btn btn-ghost btn-sm" data-i18n="common.view_all">View All</a>
+        </div>
+        <div class="flex flex-col gap-3" id="upcomingAppointments"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" data-i18n="dashboard.revenue_overview">Revenue Overview</div>
+        </div>
+        <canvas id="revenueCanvas" style="width:100%; height:220px;"></canvas>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Today's Queue</div>
+          <span class="badge badge-warning" id="queueCountBadge"></span>
+        </div>
+        <div class="flex flex-col gap-3" id="queueList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" data-i18n="dashboard.appointment_status">Appointment Status</div>
+        </div>
+        <canvas id="statusCanvas" style="width:100%; height:180px;"></canvas>
+        <div class="chart-legend" id="statusLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4" style="margin-top: var(--space-5);">
+    <div class="card-header">
+      <div class="card-title" data-i18n="dashboard.recent_patients">Recent Patients</div>
+      <a href="patients.html" class="btn btn-ghost btn-sm" data-i18n="common.view_all">View All</a>
+    </div>
+    <div class="grid-3" id="recentPatients"></div>
+  </div>
+</template>
+
+<!-- Queue action confirm modal -->
+<div class="modal-backdrop" id="queueActionModal">
+  <div class="modal modal-sm">
+    <div class="modal-body" style="text-align:center; padding-top: var(--space-8);">
+      <div class="confirm-icon danger" id="queueActionIcon" style="margin-inline:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <h3 id="queueActionTitle">Mark as completed?</h3>
+      <p class="text-muted mt-2" id="queueActionDesc">This will move the patient out of the waiting queue.</p>
+    </div>
+    <div class="modal-footer" style="justify-content:center;">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="queueActionConfirmBtn" data-i18n="common.confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/charts.js"></script>
+<script src="../../js/booking-wizard.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'dashboard' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  const tplHtml = document.getElementById('tpl-dashboard').innerHTML
+    .replace('__ICON_PRINTER__', ICONS.printer)
+    .replace('__ICON_PLUS__', ICONS.plus);
+  content.innerHTML = tplHtml;
+  I18N.applyToDOM(content);
+
+  function timeAgo(mins) {
+    if (mins < 60) return I18N.t('common.minutes_ago').replace('{n}', mins);
+    return I18N.t('common.hours_ago').replace('{n}', Math.floor(mins / 60));
+  }
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  function initials(name) {
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2);
+  }
+
+  function avatarHtml(name, color, size) {
+    return `<div class="avatar avatar-${size || 'md'}" style="background:#${color}22; color:#${color};">${initials(name)}</div>`;
+  }
+
+  async function renderStats() {
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const patients = await MOCK_API.getPatients(clinicId);
+    const payments = await MOCK_API.getPayments(clinicId);
+    const today = '2026-09-02';
+    const todays = appointments.filter(a => a.date === today);
+    const todaysPatientIds = new Set(todays.map(a => a.patientId));
+    const waiting = todays.filter(a => a.status === 'waiting').length;
+    const revenue = payments.filter(p => p.date === today && p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+
+    const stats = [
+      { label: "Today's Patients", value: todaysPatientIds.size, desc: 'Scheduled to visit today', icon: 'users', color: 'cyan', trend: '+3', trendDir: 'up' },
+      { label: I18N.t('dashboard.today_appointments'), value: todays.length, desc: 'Across all doctors', icon: 'calendarCheck', color: 'blue', trend: '+12%', trendDir: 'up' },
+      { label: I18N.t('dashboard.waiting_patients'), value: waiting, desc: 'Currently in waiting room', icon: 'clock', color: 'amber', trend: I18N.t('status.waiting'), trendDir: 'neutral' },
+      { label: I18N.t('dashboard.today_revenue'), value: '$' + revenue, desc: 'Collected so far today', icon: 'dollar', color: 'green', trend: '+8%', trendDir: 'up' },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card">
+        <div class="stat-card__info">
+          <div class="stat-card__label">${s.label}</div>
+          <div class="stat-card__value">${s.value}</div>
+          <div class="text-xs text-muted">${s.desc}</div>
+          <span class="stat-card__trend ${s.trendDir}">${s.trend}</span>
+        </div>
+        <div class="stat-card__icon ${s.color}">${icon(s.icon)}</div>
+      </div>
+    `).join('');
+  }
+
+  function apptQuickActions(a) {
+    const btns = [];
+    if (a.status === 'confirmed' || a.status === 'pending') {
+      btns.push(`<button class="btn-icon btn-sm tooltip start-appt-btn" data-id="${a.id}" data-tooltip="${I18N.t('common.start')}">${icon('clock')}</button>`);
+    }
+    if (a.status === 'waiting' || a.status === 'in_progress') {
+      btns.push(`<button class="btn-icon btn-sm tooltip complete-appt-btn" data-id="${a.id}" data-tooltip="${I18N.t('common.complete')}">${icon('checkCircle')}</button>`);
+    }
+    if (!['completed', 'cancelled', 'no_show'].includes(a.status)) {
+      btns.push(`<button class="btn-icon btn-sm tooltip cancel-appt-btn" data-id="${a.id}" data-tooltip="${I18N.t('common.cancel')}">${icon('close')}</button>`);
+    }
+    return `<div class="appt-card__actions">${btns.join('')}</div>`;
+  }
+
+  async function renderUpcoming() {
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const upcoming = appointments.filter(a => a.date === '2026-09-02').slice(0, 6);
+    const el = document.getElementById('upcomingAppointments');
+
+    if (upcoming.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__icon">${icon('calendar')}</div>
+          <div class="empty-state__title" data-i18n="dashboard.no_appointments_today"></div>
+        </div>`;
+      I18N.applyToDOM(el);
+      return;
+    }
+
+    el.innerHTML = upcoming.map(a => `
+      <div class="appt-card">
+        <div class="appt-card__time">${a.time}<span>${a.duration}m</span></div>
+        ${avatarHtml(a.patientName, a.avatarColor, 'sm')}
+        <div class="appt-card__body">
+          <div class="appt-card__title">${a.patientName}</div>
+          <div class="appt-card__meta">${a.treatment} · ${a.doctor}</div>
+        </div>
+        ${statusBadge(a.status)}
+        ${apptQuickActions(a)}
+      </div>
+    `).join('');
+
+    el.querySelectorAll('.start-appt-btn').forEach(btn => btn.addEventListener('click', () => setApptStatus(btn.dataset.id, 'in_progress')));
+    el.querySelectorAll('.complete-appt-btn').forEach(btn => btn.addEventListener('click', () => setApptStatus(btn.dataset.id, 'completed')));
+    el.querySelectorAll('.cancel-appt-btn').forEach(btn => btn.addEventListener('click', async () => {
+      const ok = await ConfirmDialog.open({
+        title: I18N.t('confirm_dialog.cancel_title'),
+        desc: I18N.t('confirm_dialog.cancel_desc'),
+        confirmLabel: I18N.t('common.confirm'),
+      });
+      if (ok) setApptStatus(btn.dataset.id, 'cancelled');
+    }));
+  }
+
+  async function setApptStatus(id, status) {
+    await MOCK_API.updateAppointment(id, { status });
+    renderUpcoming();
+    renderStats();
+    renderCharts();
+    Toast.success(I18N.t('toast.saved_title'));
+  }
+
+  let queueActionCallback = null;
+  let queueCache = [];
+  async function renderQueue() {
+    const queue = await MOCK_API.getQueue(clinicId);
+    queueCache = queue;
+    document.getElementById('queueCountBadge').textContent = I18N.t('common.waiting_count_badge').replace('{n}', queue.length);
+    const el = document.getElementById('queueList');
+
+    if (queue.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-state__icon">${icon('users')}</div><div class="empty-state__title">Queue is empty</div><div class="empty-state__desc">No patients currently waiting.</div></div>`;
+      return;
+    }
+
+    el.innerHTML = queue.map(q => `
+      <div class="queue-item">
+        <div class="queue-item__position">#${q.position}</div>
+        <div class="queue-item__body">
+          <div class="queue-item__name">${q.patientName}</div>
+          <div class="queue-item__meta"><span class="wait-dot"></span>${q.service} · Waiting ${q.waitingSince} min</div>
+        </div>
+        <div class="queue-item__actions">
+          <button class="btn-icon btn-sm tooltip queue-call-btn" data-id="${q.patientId}" data-tooltip="${I18N.t('common.call')}">${icon('phone')}</button>
+          <button class="btn-icon btn-sm tooltip queue-start-btn" data-id="${q.patientId}" data-tooltip="${I18N.t('common.start')}">${icon('clock')}</button>
+          <button class="btn-icon btn-sm tooltip queue-complete-btn" data-id="${q.patientId}" data-tooltip="${I18N.t('common.complete')}">${icon('checkCircle')}</button>
+          <button class="btn-icon btn-sm tooltip queue-cancel-btn" data-id="${q.patientId}" data-tooltip="${I18N.t('common.cancel')}">${icon('close')}</button>
+        </div>
+      </div>
+    `).join('');
+
+    el.querySelectorAll('.queue-call-btn').forEach(btn => btn.addEventListener('click', () => {
+      Toast.info('Calling patient', 'The patient has been notified to come to the front desk.');
+    }));
+    el.querySelectorAll('.queue-start-btn').forEach(btn => btn.addEventListener('click', () => {
+      openQueueAction(btn.dataset.id, 'start');
+    }));
+    el.querySelectorAll('.queue-complete-btn').forEach(btn => btn.addEventListener('click', () => {
+      openQueueAction(btn.dataset.id, 'complete');
+    }));
+    el.querySelectorAll('.queue-cancel-btn').forEach(btn => btn.addEventListener('click', () => {
+      openQueueAction(btn.dataset.id, 'cancel');
+    }));
+  }
+
+  function openQueueAction(patientId, action) {
+    const copy = {
+      start: { title: 'Start appointment?', desc: 'This will move the patient into an in-progress appointment.' },
+      complete: { title: 'Mark as completed?', desc: 'This will move the patient out of the waiting queue.' },
+      cancel: { title: 'Cancel this patient’s visit?', desc: 'The patient will be removed from today’s queue.' },
+    }[action];
+    document.getElementById('queueActionTitle').textContent = copy.title;
+    document.getElementById('queueActionDesc').textContent = copy.desc;
+    queueActionCallback = async () => {
+      const entry = queueCache.find(q => q.patientId === patientId);
+      if (entry) await MOCK_API.removeQueueEntry(entry.id);
+      renderQueue();
+      Toast.success(I18N.t('toast.saved_title'));
+    };
+    Modal.open('queueActionModal');
+  }
+
+  document.getElementById('queueActionConfirmBtn').addEventListener('click', () => {
+    if (queueActionCallback) queueActionCallback();
+    Modal.close('queueActionModal');
+  });
+
+  async function renderRecentPatients() {
+    const patients = await MOCK_API.getPatients(clinicId);
+    const recent = patients.slice(0, 3);
+    document.getElementById('recentPatients').innerHTML = recent.map(p => `
+      <a href="patient-detail.html?id=${p.id}" class="patient-card">
+        ${avatarHtml(p.name, p.avatarColor, 'md')}
+        <div class="patient-card__info">
+          <div class="patient-card__name">${p.name}</div>
+          <div class="patient-card__meta">${p.condition}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  async function renderCharts() {
+    const revenue = await MOCK_API.getRevenueChart();
+    const statusData = await MOCK_API.getAppointmentStatusChart();
+    Charts.barChart('revenueCanvas', revenue);
+    Charts.donutChart('statusCanvas', statusData);
+
+    document.getElementById('statusLegend').innerHTML = statusData && statusData.labels ? statusData.labels.map((l, i) => `
+      <div class="chart-legend__item">
+        <span class="chart-legend__dot" style="background:${statusData.colors[i]}"></span>
+        <span>${I18N.t('status.' + l.toLowerCase().replace(' ', '_'))} (${statusData.values[i]})</span>
+      </div>
+    `).join('') : '';
+  }
+
+  function init() {
+    renderStats();
+    renderUpcoming();
+    renderQueue();
+    renderRecentPatients();
+    renderCharts();
+  }
+  init();
+  BookingWizard.mount();
+
+  document.addEventListener('booking:created', () => { renderStats(); renderUpcoming(); renderQueue(); renderCharts(); });
+  document.addEventListener('theme:changed', renderCharts);
+  document.addEventListener('i18n:changed', () => { renderStats(); renderUpcoming(); renderQueue(); renderCharts(); });
+  window.addEventListener('resize', renderCharts);
+</script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reception Desk — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="dashboard.title">Dashboard</h1>
+      <p class="page-header__desc" data-i18n="receptionist.dashboard_desc">Front desk overview — check-ins, waiting room, and today's schedule.</p>
+    </div>
+  </div>
+
+  <!-- Prominent main actions -->
+  <div class="quick-actions">
+    <button class="quick-action" data-modal-open="bookingWizardModal">
+      <div class="quick-action__icon blue">__ICON_CALENDAR_PLUS__</div>
+      <div class="quick-action__title" data-i18n="appointments.new_appointment">New Appointment</div>
+      <div class="quick-action__desc" data-i18n="receptionist.new_appointment_desc">Book a visit in a few quick steps</div>
+    </button>
+    <button class="quick-action" data-modal-open="newPatientModal">
+      <div class="quick-action__icon cyan">__ICON_USERPLUS__</div>
+      <div class="quick-action__title" data-i18n="receptionist.new_patient">New Patient</div>
+      <div class="quick-action__desc" data-i18n="receptionist.new_patient_desc">Register a first-time patient</div>
+    </button>
+    <button class="quick-action" data-modal-open="checkinModal">
+      <div class="quick-action__icon green">__ICON_USERCHECK__</div>
+      <div class="quick-action__title" data-i18n="receptionist.check_in">Check In</div>
+      <div class="quick-action__desc" data-i18n="receptionist.check_in_desc">Move an arriving patient to the queue</div>
+    </button>
+  </div>
+
+  <div class="grid-stats" id="statsGrid"></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title" data-i18n="dashboard.todays_schedule">Today's Schedule</div>
+        <a href="queue.html" class="btn btn-ghost btn-sm" data-i18n="receptionist.queue_title">Live Queue</a>
+      </div>
+      <div class="schedule-timeline" id="scheduleList"></div>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" data-i18n="receptionist.next_appointment">Next Appointment</div>
+        </div>
+        <div id="nextAppointmentCard"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" data-i18n="receptionist.at_a_glance">At a Glance</div>
+        </div>
+        <div class="flex flex-col gap-3" id="glanceList"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- Check-in modal -->
+<div class="modal-backdrop" id="checkinModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="receptionist.check_in">Check In Patient</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" data-i18n="receptionist.select_appointment">Select Appointment</label>
+        <select class="form-control" id="checkinSelect"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="confirmCheckinBtn" data-i18n="receptionist.check_in">Check In</button>
+    </div>
+  </div>
+</div>
+
+<!-- New patient modal -->
+<div class="modal-backdrop" id="newPatientModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="receptionist.new_patient">New Patient</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="common.name">Name</label><input type="text" class="form-control" placeholder="Full name"></div>
+        <div class="form-group"><label class="form-label" data-i18n="common.age">Age</label><input type="number" class="form-control" placeholder="Age"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="common.phone">Phone</label><input type="tel" class="form-control" placeholder="+1 555-0100"></div>
+        <div class="form-group"><label class="form-label" data-i18n="common.gender">Gender</label>
+          <select class="form-control"><option data-i18n="common.male">Male</option><option data-i18n="common.female">Female</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label" data-i18n="common.email">Email</label><input type="email" class="form-control" placeholder="patient@email.com"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="savePatientBtn" data-i18n="common.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/booking-wizard.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'dashboard', role: 'receptionist' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const TODAY = '2026-09-02';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML
+    .replace('__ICON_CALENDAR_PLUS__', ICONS.calendarCheck)
+    .replace('__ICON_USERPLUS__', ICONS.userPlus)
+    .replace('__ICON_USERCHECK__', ICONS.userCheck);
+  I18N.applyToDOM(content);
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  function initials(name) { return name.split(' ').map(n => n[0]).join('').slice(0, 2); }
+  function avatarHtml(name, color, size) {
+    return `<div class="avatar avatar-${size || 'md'}" style="background:#${color}22; color:#${color};">${initials(name)}</div>`;
+  }
+
+  async function renderStats() {
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const today = appointments.filter(a => a.date === TODAY);
+    const waiting = today.filter(a => a.status === 'waiting').length;
+    const completed = today.filter(a => a.status === 'completed').length;
+    const cancelled = today.filter(a => a.status === 'cancelled' || a.status === 'no_show').length;
+
+    const stats = [
+      { label: I18N.t('dashboard.today_appointments'), value: today.length, icon: 'calendarCheck', color: 'blue' },
+      { label: I18N.t('dashboard.waiting_patients'), value: waiting, icon: 'clock', color: 'amber' },
+      { label: I18N.t('dashboard.completed_appointments'), value: completed, icon: 'checkCircle', color: 'green' },
+      { label: I18N.t('status.cancelled'), value: cancelled, icon: 'alertTriangle', color: 'cyan' },
+    ];
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card">
+        <div class="stat-card__info">
+          <div class="stat-card__label">${s.label}</div>
+          <div class="stat-card__value">${s.value}</div>
+        </div>
+        <div class="stat-card__icon ${s.color}">${icon(s.icon)}</div>
+      </div>
+    `).join('');
+  }
+
+  function scheduleRowActions(a) {
+    const btns = [];
+    if (a.status === 'confirmed' || a.status === 'pending') {
+      btns.push(`<button class="btn-icon btn-sm tooltip checkin-row-btn" data-id="${a.id}" data-tooltip="${I18N.t('receptionist.check_in')}">${icon('userCheck')}</button>`);
+    }
+    btns.push(`<button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.reschedule')}">${icon('clock')}</button>`);
+    if (!['completed', 'cancelled', 'no_show'].includes(a.status)) {
+      btns.push(`<button class="btn-icon btn-sm tooltip cancel-row-btn" data-id="${a.id}" data-tooltip="${I18N.t('common.cancel')}">${icon('close')}</button>`);
+    }
+    return `<div class="schedule-row__actions">${btns.join('')}</div>`;
+  }
+
+  function buildDaySlots(appointments) {
+    // Build a continuous 08:00-17:00 timeline in 30-min increments, filling gaps with "Available".
+    const byTime = new Map(appointments.map(a => [a.time, a]));
+    const slots = [];
+    for (let h = 8; h <= 17; h++) {
+      for (const m of ['00', '30']) {
+        if (h === 17 && m === '30') continue;
+        const t = `${String(h).padStart(2, '0')}:${m}`;
+        slots.push(byTime.get(t) || { time: t, open: true });
+      }
+    }
+    return slots;
+  }
+
+  async function renderSchedule() {
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const today = appointments.filter(a => a.date === TODAY).sort((a, b) => a.time.localeCompare(b.time));
+    const slots = buildDaySlots(today);
+
+    document.getElementById('scheduleList').innerHTML = slots.map(s => {
+      if (s.open) {
+        return `
+          <div class="schedule-row is-open">
+            <div class="schedule-row__time">${s.time}</div>
+            <div class="schedule-row__slot">
+              <div class="schedule-row__open-label">${icon('plus')}<span data-i18n="receptionist.available">Available</span></div>
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="schedule-row">
+          <div class="schedule-row__time">${s.time}</div>
+          <div class="schedule-row__slot">
+            ${avatarHtml(s.patientName, s.avatarColor, 'sm')}
+            <div class="schedule-row__body">
+              <div class="schedule-row__name">${s.patientName}</div>
+              <div class="schedule-row__meta">${s.treatment} · ${s.doctor}</div>
+            </div>
+            ${statusBadge(s.status)}
+            ${scheduleRowActions(s)}
+          </div>
+        </div>`;
+    }).join('');
+    I18N.applyToDOM(document.getElementById('scheduleList'));
+
+    document.getElementById('checkinSelect').innerHTML = today
+      .filter(a => a.status === 'confirmed' || a.status === 'pending')
+      .map(a => `<option value="${a.id}">${a.time} — ${a.patientName}</option>`).join('');
+
+    document.querySelectorAll('.checkin-row-btn').forEach(btn => btn.addEventListener('click', async () => {
+      await MOCK_API.updateAppointment(btn.dataset.id, { status: 'waiting' });
+      renderSchedule(); renderStats(); renderNext(); renderGlance();
+      Toast.success('Patient checked in', 'The patient has been added to the waiting room.');
+    }));
+    document.querySelectorAll('.cancel-row-btn').forEach(btn => btn.addEventListener('click', async () => {
+      const ok = await ConfirmDialog.open({
+        title: I18N.t('confirm_dialog.cancel_title'),
+        desc: I18N.t('confirm_dialog.cancel_desc'),
+        confirmLabel: I18N.t('common.confirm'),
+      });
+      if (ok) {
+        await MOCK_API.updateAppointment(btn.dataset.id, { status: 'cancelled' });
+        renderSchedule(); renderStats(); renderNext(); renderGlance();
+        Toast.success(I18N.t('toast.saved_title'));
+      }
+    }));
+  }
+
+  async function renderNext() {
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const upcoming = appointments
+      .filter(a => a.date === TODAY && ['confirmed', 'pending'].includes(a.status))
+      .sort((a, b) => a.time.localeCompare(b.time))[0];
+    const el = document.getElementById('nextAppointmentCard');
+    if (!upcoming) {
+      el.innerHTML = `<div class="empty-state" style="padding: var(--space-6) var(--space-4);"><div class="empty-state__icon">${icon('calendarCheck')}</div><div class="empty-state__title">${I18N.t('receptionist.no_upcoming_appointments')}</div></div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="appt-card" style="border:none; padding:0; background:transparent;">
+        <div class="appt-card__time">${upcoming.time}<span>${upcoming.duration}m</span></div>
+        ${avatarHtml(upcoming.patientName, upcoming.avatarColor, 'md')}
+        <div class="appt-card__body">
+          <div class="appt-card__title">${upcoming.patientName}</div>
+          <div class="appt-card__meta">${upcoming.treatment} · ${upcoming.doctor}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function renderGlance() {
+    const patients = await MOCK_API.getPatients(clinicId);
+    const queue = await MOCK_API.getQueue(clinicId);
+    const items = [
+      { label: 'Patients in system', value: patients.length, icon: 'users' },
+      { label: 'Currently waiting', value: queue.length, icon: 'clock' },
+    ];
+    document.getElementById('glanceList').innerHTML = items.map(i => `
+      <div class="flex items-center justify-between" style="padding: var(--space-2) 0;">
+        <div class="flex items-center gap-2 text-sm text-muted">${icon(i.icon)}<span>${i.label}</span></div>
+        <span class="fw-semibold">${i.value}</span>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('confirmCheckinBtn').addEventListener('click', async () => {
+    const id = document.getElementById('checkinSelect').value;
+    await MOCK_API.updateAppointment(id, { status: 'waiting' });
+    Modal.close('checkinModal');
+    renderSchedule(); renderStats(); renderNext(); renderGlance();
+    Toast.success('Patient checked in', 'The patient has been added to the waiting room.');
+  });
+
+  document.getElementById('savePatientBtn').addEventListener('click', () => {
+    Modal.close('newPatientModal');
+    Toast.success(I18N.t('toast.saved_title'), 'New patient record created.');
+  });
+
+  function renderAll() { renderStats(); renderSchedule(); renderNext(); renderGlance(); }
+  renderAll();
+  BookingWizard.mount();
+  document.addEventListener('i18n:changed', renderAll);
+</script>
+</body>
+</html>

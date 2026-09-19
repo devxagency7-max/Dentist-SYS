@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" id="greetingTitle">Good Morning, Sarah 👋</h1>
+      <p class="page-header__desc" data-i18n="patient_portal.dashboard_desc">Here's an overview of your dental care.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: var(--space-6);">
+    <div class="card-header">
+      <div class="card-title" data-i18n="patient_portal.next_appointment">Next Appointment</div>
+    </div>
+    <div id="nextApptArea"></div>
+  </div>
+
+  <h3 style="margin-bottom: var(--space-4);" data-i18n="patient_portal.quick_actions">Quick Actions</h3>
+  <div class="quick-actions" id="quickActionsGrid"></div>
+</template>
+
+<!-- Cancel confirm modal -->
+<div class="modal-backdrop" id="cancelApptModal">
+  <div class="modal modal-sm">
+    <div class="modal-body" style="text-align:center; padding-top: var(--space-8);">
+      <div class="confirm-icon danger" style="margin-inline:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+      <h3 data-i18n="patient_portal.cancel_confirm_title">Cancel this appointment?</h3>
+      <p class="text-muted mt-2" data-i18n="patient_portal.cancel_confirm_desc">We'll let the clinic know right away. This cannot be undone.</p>
+    </div>
+    <div class="modal-footer" style="justify-content:center;">
+      <button class="btn btn-secondary" data-modal-close data-i18n="patient_portal.keep_appointment">Keep Appointment</button>
+      <button class="btn btn-danger" id="confirmCancelApptBtn" data-i18n="patient_portal.cancel_appointment">Cancel Appointment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reschedule modal -->
+<div class="modal-backdrop" id="rescheduleApptModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="patient_portal.reschedule_appointment">Reschedule Appointment</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="common.date">Date</label><input type="date" class="form-control" id="rescheduleDateInput"></div>
+        <div class="form-group"><label class="form-label" data-i18n="common.time">Time</label><input type="time" class="form-control" id="rescheduleTimeInput"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="confirmRescheduleApptBtn" data-i18n="common.confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'dashboard', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+  const TODAY = '2026-09-02';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+
+  function greetingKey() {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'patient_portal.greeting_morning';
+    if (hour < 18) return 'patient_portal.greeting_afternoon';
+    return 'patient_portal.greeting_evening';
+  }
+
+  async function renderGreeting() {
+    const patient = await MOCK_API.getPatient(PATIENT_ID);
+    document.getElementById('greetingTitle').textContent = `${I18N.t(greetingKey())}, ${patient.name.split(' ')[0]} 👋`;
+  }
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  let activeApptId = null;
+
+  async function renderNextAppointment() {
+    const appointments = await MOCK_API.getAppointments();
+    const upcoming = appointments
+      .filter(a => a.patientId === PATIENT_ID && a.date >= TODAY && ['confirmed', 'pending'].includes(a.status))
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
+
+    const area = document.getElementById('nextApptArea');
+    if (!upcoming) {
+      area.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__icon">${icon('calendarCheck')}</div>
+          <div class="empty-state__title" data-i18n="patient_portal.no_next_appointment"></div>
+          <div class="empty-state__desc" data-i18n="patient_portal.no_next_appointment_desc"></div>
+          <a href="../public/booking.html" class="btn btn-primary" data-i18n="patient_portal.qa_book"></a>
+        </div>`;
+      I18N.applyToDOM(area);
+      return;
+    }
+
+    activeApptId = upcoming.id;
+    area.innerHTML = `
+      <div class="appt-card" style="border:none; padding:0; background:transparent; flex-wrap:wrap;">
+        <div class="appt-card__time">${upcoming.time}<span>${upcoming.duration}m</span></div>
+        <div class="appt-card__body">
+          <div class="appt-card__title">${upcoming.treatment}</div>
+          <div class="appt-card__meta">${upcoming.doctor} · ${upcoming.date}</div>
+        </div>
+        ${statusBadge(upcoming.status)}
+      </div>
+      <div class="flex gap-2" style="margin-top: var(--space-4);">
+        <a href="appointment-detail.html?id=${upcoming.id}" class="btn btn-primary btn-sm" data-i18n="patient_portal.view_appointment"></a>
+        <button class="btn btn-secondary btn-sm" id="dashRescheduleBtn" data-i18n="common.reschedule"></button>
+        <button class="btn btn-ghost btn-sm" id="dashCancelBtn" data-i18n="common.cancel"></button>
+      </div>
+    `;
+    I18N.applyToDOM(area);
+
+    document.getElementById('dashRescheduleBtn').addEventListener('click', () => {
+      document.getElementById('rescheduleDateInput').value = upcoming.date;
+      document.getElementById('rescheduleTimeInput').value = upcoming.time;
+      Modal.open('rescheduleApptModal');
+    });
+    document.getElementById('dashCancelBtn').addEventListener('click', () => Modal.open('cancelApptModal'));
+  }
+
+  document.getElementById('confirmCancelApptBtn').addEventListener('click', () => {
+    const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
+    if (appt) appt.status = 'cancelled';
+    Modal.close('cancelApptModal');
+    renderNextAppointment();
+    Toast.success(I18N.t('toast.saved_title'), 'Your appointment has been cancelled.');
+  });
+
+  document.getElementById('confirmRescheduleApptBtn').addEventListener('click', () => {
+    const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
+    if (appt) {
+      appt.date = document.getElementById('rescheduleDateInput').value || appt.date;
+      appt.time = document.getElementById('rescheduleTimeInput').value || appt.time;
+    }
+    Modal.close('rescheduleApptModal');
+    renderNextAppointment();
+    Toast.success('Appointment rescheduled', 'You will receive a confirmation shortly.');
+  });
+
+  function renderQuickActions() {
+    const actions = [
+      { key: 'qa_book', icon: 'calendarCheck', color: 'blue', href: '../public/booking.html' },
+      { key: 'qa_reschedule', icon: 'clock', color: 'cyan', action: 'reschedule' },
+      { key: 'qa_cancel', icon: 'close', color: 'amber', action: 'cancel' },
+      { key: 'qa_medical_history', icon: 'treatments', color: 'green', href: 'medical-history.html' },
+      { key: 'qa_prescriptions', icon: 'pill', color: 'blue', href: 'prescriptions.html' },
+      { key: 'qa_invoices', icon: 'payments', color: 'cyan', href: 'invoices.html' },
+    ];
+    document.getElementById('quickActionsGrid').innerHTML = actions.map(a => `
+      <button class="quick-action" data-action="${a.action || ''}" data-href="${a.href || ''}">
+        <div class="quick-action__icon ${a.color}">${icon(a.icon)}</div>
+        <div class="quick-action__title" data-i18n="patient_portal.${a.key}"></div>
+      </button>
+    `).join('');
+    I18N.applyToDOM(document.getElementById('quickActionsGrid'));
+
+    document.querySelectorAll('.quick-action').forEach(btn => btn.addEventListener('click', () => {
+      const href = btn.dataset.href;
+      const act = btn.dataset.action;
+      if (href) { location.href = href; return; }
+      if (act === 'cancel') {
+        if (!activeApptId) { Toast.warning('No upcoming appointment', 'You have no appointment to cancel.'); return; }
+        Modal.open('cancelApptModal');
+      }
+      if (act === 'reschedule') {
+        if (!activeApptId) { Toast.warning('No upcoming appointment', 'You have no appointment to reschedule.'); return; }
+        const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
+        document.getElementById('rescheduleDateInput').value = appt.date;
+        document.getElementById('rescheduleTimeInput').value = appt.time;
+        Modal.open('rescheduleApptModal');
+      }
+    }));
+  }
+
+  function renderAll() { renderGreeting(); renderNextAppointment(); renderQuickActions(); }
+  renderAll();
+  document.addEventListener('i18n:changed', renderAll);
+</script>
+</body>
+</html>

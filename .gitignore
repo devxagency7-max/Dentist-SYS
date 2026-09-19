@@ -1,0 +1,11 @@
+# Firebase Admin SDK credentials — NEVER commit this. It grants full
+# read/write access to the project, bypassing all Firestore security rules.
+scripts/serviceAccountKey.json
+
+# Node dependencies for the one-off admin scripts in /scripts
+scripts/node_modules/
+
+# Cloud Functions dependencies and local Firebase CLI state
+functions/node_modules/
+.firebase/
+firebase-debug.log

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev SmartX Dental — Clinic Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+  }
+  .auth-shell {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+  }
+  .auth-visual {
+    flex: 1.1;
+    background: linear-gradient(160deg, var(--color-primary) 0%, #2C5AA0 55%, var(--color-secondary) 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--space-12);
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-visual::after {
+    content: '';
+    position: absolute;
+    width: 480px;
+    height: 480px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    bottom: -180px;
+    inset-inline-end: -140px;
+  }
+  .auth-visual__brand { display: flex; align-items: center; gap: var(--space-3); position: relative; z-index: 1; }
+  .auth-visual__brand-logo {
+    width: 46px; height: 46px; border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center;
+  }
+  .auth-visual__brand-logo svg { width: 26px; height: 26px; }
+  .auth-visual__brand-name { font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+  .auth-visual__content { position: relative; z-index: 1; max-width: 420px; }
+  .auth-visual__content h1 { font-size: var(--fs-3xl); line-height: 1.2; margin-bottom: var(--space-4); }
+  .auth-visual__content p { color: rgba(255,255,255,0.85); font-size: var(--fs-base); line-height: var(--lh-relaxed); }
+  .auth-visual__footer { position: relative; z-index: 1; font-size: var(--fs-sm); color: rgba(255,255,255,0.7); }
+
+  .auth-form-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    background: var(--color-bg);
+  }
+  .auth-form-wrap { width: 100%; max-width: 400px; }
+  .auth-form-wrap h2 { font-size: var(--fs-2xl); margin-bottom: var(--space-2); }
+  .auth-form-wrap > p { color: var(--color-text-muted); margin-bottom: var(--space-8); }
+
+  .input-icon-wrap { position: relative; }
+  .input-icon-wrap svg {
+    position: absolute; inset-inline-start: var(--space-4); top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; color: var(--color-text-muted); pointer-events: none;
+  }
+  .input-icon-wrap .form-control { padding-inline-start: var(--space-10); }
+
+  .auth-options { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+  .auth-checkbox { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-sm); color: var(--color-text-muted); }
+  .auth-checkbox input { width: 16px; height: 16px; accent-color: var(--color-primary); }
+
+  .lang-switch-standalone {
+    position: fixed; top: var(--space-5); inset-inline-end: var(--space-5);
+    display: flex; gap: 2px; background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); padding: 3px; box-shadow: var(--shadow-sm); z-index: 10;
+  }
+  .lang-switch-standalone button { padding: 6px var(--space-3); border-radius: var(--radius-sm); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--color-text-muted); }
+  .lang-switch-standalone button.active { background: var(--color-primary-light); color: var(--color-primary); }
+
+  @media (max-width: 900px) {
+    .auth-visual { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="lang-switch-standalone" id="langSwitch">
+  <button data-lang="en">EN</button>
+  <button data-lang="ar">AR</button>
+</div>
+
+<div class="auth-shell">
+  <div class="auth-visual">
+    <div class="auth-visual__brand">
+      <div class="auth-visual__brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-1.5 0-3 1-3 3 0 1 .5 1.5.5 2.5C9.5 9 8 9.5 8 12c0 3 1.5 8 2.5 9 .5.5 1 .5 1.5-.5.3-.6.5-2 .5-3s.2-2.4.5-3c.3.6.5 2 .5 3s.2 2.4.5 3c.5 1 1 1 1.5.5C16.5 20 18 15 18 12c0-2.5-1.5-3-2-4.5-.5-1.5 0-2 .5-3 0-2-1.5-3-3-3z"/></svg>
+      </div>
+      <div class="auth-visual__brand-name">Dev SmartX Dental</div>
+    </div>
+    <div class="auth-visual__content">
+      <h1 data-i18n="auth.marketing_title">Manage your clinic with confidence.</h1>
+      <p data-i18n="auth.marketing_desc">Appointments, patients, treatments, payments and analytics — all in one powerful workspace built for modern dental practices, powered by Dev SmartX.</p>
+    </div>
+    <div class="auth-visual__footer">&copy; 2026 Dev SmartX. All rights reserved.</div>
+  </div>
+
+  <div class="auth-form-side">
+    <div class="auth-form-wrap">
+      <h2 data-i18n="auth.login_title">Welcome back</h2>
+      <p data-i18n="auth.login_desc">Sign in to access your clinic dashboard</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" data-i18n="auth.email">Email address</label>
+          <div class="input-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <input type="email" class="form-control" placeholder="you@clinic.com" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="auth.password">Password</label>
+          <div class="input-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" class="form-control" placeholder="••••••••" required>
+          </div>
+        </div>
+        <div class="auth-options">
+          <label class="auth-checkbox">
+            <input type="checkbox">
+            <span data-i18n="auth.remember_me">Remember me</span>
+          </label>
+          <a href="#" class="link text-sm" data-i18n="auth.forgot_password">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg w-full" data-i18n="auth.sign_in">Sign In</button>
+      </form>
+
+      <p class="text-center text-muted text-sm mt-4" style="text-align:center; margin-top: var(--space-6);">
+        <span data-i18n="auth.patient_hint">Are you a patient? Ask your clinic for their booking link.</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+
+  const langButtons = document.querySelectorAll('#langSwitch button');
+  function syncLangButtons() {
+    const lang = I18N.getLang();
+    langButtons.forEach((b) => b.classList.toggle('active', b.getAttribute('data-lang') === lang));
+  }
+  syncLangButtons();
+  langButtons.forEach((b) => b.addEventListener('click', () => { I18N.setLang(b.getAttribute('data-lang')); syncLangButtons(); }));
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.querySelector('#loginForm input[type="email"]').value.trim();
+    const password = document.querySelector('#loginForm input[type="password"]').value;
+    const submitBtn = document.querySelector('#loginForm button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      // Sign in first, then check the real superAdmin custom claim — never a
+      // hardcoded email, which would just expose the super admin's address
+      // to anyone reading this page's source.
+      const cred = await auth.signInWithEmailAndPassword(email, password);
+      const tokenResult = await cred.user.getIdTokenResult(true);
+      if (tokenResult.claims.superAdmin === true) {
+        window.location.href = '../super-admin/dashboard.html';
+        return;
+      }
+
+      await auth.signOut();
+      const { role } = await AUTH.signIn(email, password);
+      window.location.href = role === 'receptionist' ? '../receptionist/dashboard.html' : '../admin/dashboard.html';
+    } catch (err) {
+      submitBtn.disabled = false;
+      Toast.error('Sign-in failed', err.message || 'Email or password is incorrect.');
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoices — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="patient_portal.invoices_title">Invoices</h1>
+      <p class="page-header__desc" data-i18n="patient_portal.invoices_desc">Track your treatment costs and payment status.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th data-i18n="patient_portal.invoice_number">Invoice Number</th>
+            <th data-i18n="common.treatment">Treatment</th>
+            <th data-i18n="patient_portal.total">Total</th>
+            <th data-i18n="patient_portal.paid">Paid</th>
+            <th data-i18n="patient_portal.remaining">Remaining</th>
+            <th data-i18n="common.status">Status</th>
+            <th data-i18n="common.date">Date</th>
+          </tr>
+        </thead>
+        <tbody id="invoiceRows"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden"></div>
+  </div>
+</template>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'invoices', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+
+  function statusBadge(status) {
+    const map = { paid: 'success', pending: 'warning', overdue: 'danger', partial: 'warning' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  async function render() {
+    const payments = await MOCK_API.getPayments();
+    const mine = payments.filter(p => p.patientId === PATIENT_ID);
+    const tbody = document.getElementById('invoiceRows');
+    const empty = document.getElementById('emptyState');
+    const tableWrap = document.querySelector('.table-wrap');
+
+    if (mine.length === 0) {
+      tableWrap.classList.add('hidden');
+      empty.classList.remove('hidden');
+      empty.innerHTML = `<div class="empty-state"><div class="empty-state__icon">${icon('payments')}</div><div class="empty-state__title">No invoices yet</div></div>`;
+      return;
+    }
+
+    tableWrap.classList.remove('hidden');
+    empty.classList.add('hidden');
+    tbody.innerHTML = mine.map(p => {
+      const remaining = p.amount - p.paid;
+      return `
+        <tr>
+          <td data-label="${I18N.t('patient_portal.invoice_number')}" class="fw-medium">${p.id}</td>
+          <td data-label="${I18N.t('common.treatment')}">${p.treatment}</td>
+          <td data-label="${I18N.t('patient_portal.total')}" class="fw-semibold">$${p.amount}</td>
+          <td data-label="${I18N.t('patient_portal.paid')}" class="cell-muted">$${p.paid}</td>
+          <td data-label="${I18N.t('patient_portal.remaining')}" class="fw-semibold" style="color:${remaining > 0 ? 'var(--color-danger)' : 'var(--color-success)'};">$${remaining}</td>
+          <td data-label="${I18N.t('common.status')}">${statusBadge(p.status)}</td>
+          <td data-label="${I18N.t('common.date')}" class="cell-muted">${p.date}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  render();
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

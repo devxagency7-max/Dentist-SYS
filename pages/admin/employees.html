@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employees — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="employees.title">Employees</h1>
+      <p class="page-header__desc" data-i18n="employees.desc">Manage clinic staff and roles</p>
+    </div>
+    <div class="page-header__actions">
+      <button class="btn btn-primary" data-modal-open="newEmployeeModal"><span class="icon-plus"></span><span data-i18n="employees.new_employee">New Employee</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center gap-2 flex-wrap mb-4">
+      <div class="dropdown">
+        <button class="dropdown-toggle" data-dropdown-toggle><span class="icon-filter"></span><span id="roleFilterLabel" data-i18n="employees.role">Role</span><span class="icon-chevron"></span></button>
+        <div class="dropdown-menu" id="roleFilterMenu"></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th data-i18n="common.name">Name</th>
+            <th data-i18n="employees.role">Role</th>
+            <th>Branch</th>
+            <th data-i18n="common.phone">Phone</th>
+            <th data-i18n="common.status">Status</th>
+            <th>Last Login</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<div class="modal-backdrop" id="newEmployeeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="employees.new_employee">New Employee</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" data-i18n="common.name">Name</label><input type="text" class="form-control" id="newEmpName" placeholder="Full name"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="employees.role">Role</label>
+          <input type="text" class="form-control" value="Receptionist" disabled>
+        </div>
+        <div class="form-group"><label class="form-label" data-i18n="employees.department">Department</label><input type="text" class="form-control" id="newEmpDept" placeholder="Front Desk"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="common.email">Email</label><input type="email" class="form-control" id="newEmpEmail" placeholder="name@dentalcare.com"></div>
+        <div class="form-group"><label class="form-label" data-i18n="common.phone">Phone</label><input type="tel" class="form-control" id="newEmpPhone" placeholder="+1 555-0100"></div>
+      </div>
+      <div class="form-group" id="newEmpBranchGroup" style="display:none;">
+        <label class="form-label">Branch</label>
+        <select class="form-control" id="newEmpBranch"></select>
+        <p class="text-xs text-muted mt-1">This receptionist will only see this branch's patients and appointments.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Temporary Password</label>
+        <input type="text" class="form-control" id="newEmpPassword" placeholder="At least 6 characters">
+        <p class="text-xs text-muted mt-1">Share this with the receptionist — they can change it later.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="saveEmployeeBtn" data-i18n="common.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'employees' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+  document.querySelector('.icon-filter').innerHTML = ICONS.filter;
+  document.querySelector('.icon-chevron').innerHTML = ICONS.chevronDown;
+
+  let allEmployees = [];
+  let allBranches = [];
+  let roleFilter = 'all';
+  const ROLES = ['all', 'Doctor', 'Receptionist', 'Assistant', 'Accountant'];
+  /* Every new receptionist gets this fixed permission set — appointments, calendar,
+     and reminders only. No manual per-employee toggle UI in the simplified model. */
+  const RECEPTIONIST_DEFAULT_PERMISSIONS = {
+    dashboard: true, appointments: true, patients: false,
+    treatments: false, payments: false, reports: false, employees: false, settings: false,
+  };
+
+  function branchNameById(branchId) {
+    const branch = allBranches.find(b => b.id === branchId);
+    return branch ? branch.name : '—';
+  }
+
+  function populateBranchSelect() {
+    const group = document.getElementById('newEmpBranchGroup');
+    const select = document.getElementById('newEmpBranch');
+    if (allBranches.length <= 1) {
+      group.style.display = 'none';
+      return;
+    }
+    group.style.display = '';
+    select.innerHTML = allBranches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  }
+
+  function statusBadge(status) {
+    const map = { active: 'success', inactive: 'neutral', on_leave: 'warning', disabled: 'danger' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  function buildRoleMenu() {
+    document.getElementById('roleFilterMenu').innerHTML = ROLES.map(r => `
+      <button class="dropdown-item" data-role="${r}">${r === 'all' ? I18N.t('common.all') : r}</button>
+    `).join('');
+  }
+
+  function render() {
+    const filtered = roleFilter === 'all' ? allEmployees : allEmployees.filter(e => e.role === roleFilter);
+    const tbody = document.getElementById('tableBody');
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state__icon">${icon('employees')}</div><div class="empty-state__title">${I18N.t('common.no_results')}</div></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(e => `
+      <tr>
+        <td data-label="${I18N.t('common.name')}">
+          <div class="flex items-center gap-2">
+            <div class="avatar avatar-sm" style="background:#${e.avatarColor}22; color:#${e.avatarColor};">${e.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+            <div>
+              <div class="fw-medium">${e.name}</div>
+              <div class="text-xs text-muted">${e.department}</div>
+            </div>
+          </div>
+        </td>
+        <td data-label="${I18N.t('employees.role')}"><span class="badge badge-info">${e.role}</span></td>
+        <td data-label="Branch" class="cell-muted">${branchNameById(e.branchId)}</td>
+        <td data-label="${I18N.t('common.phone')}" class="cell-muted">${e.phone}</td>
+        <td data-label="${I18N.t('common.status')}">${statusBadge(e.status)}</td>
+        <td data-label="Last Login" class="cell-muted">${e.lastLogin}</td>
+        <td class="cell-actions">
+          <button class="btn-icon btn-sm tooltip toggle-status-btn" data-id="${e.id}" data-tooltip="${e.status === 'disabled' ? I18N.t('common.enable') : I18N.t('common.disable')}">
+            ${e.status === 'disabled' ? icon('checkCircle') : icon('close')}
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.toggle-status-btn').forEach(btn => btn.addEventListener('click', () => toggleStatus(btn.dataset.id)));
+  }
+
+  async function toggleStatus(id) {
+    const employee = allEmployees.find(e => e.id === id);
+    if (!employee) return;
+    const disabling = employee.status !== 'disabled';
+    const ok = await ConfirmDialog.open({
+      title: disabling ? `Disable ${employee.name}?` : `Enable ${employee.name}?`,
+      desc: disabling ? 'They will immediately lose access to the clinic system.' : 'They will regain access to the clinic system.',
+      confirmLabel: disabling ? I18N.t('common.disable') : I18N.t('common.enable'),
+      tone: disabling ? 'danger' : 'primary',
+    });
+    if (ok) {
+      const nextStatus = disabling ? 'disabled' : 'active';
+      await MOCK_API.updateEmployee(employee.id, { status: nextStatus });
+      employee.status = nextStatus;
+      render();
+      Toast.success(I18N.t('toast.saved_title'));
+    }
+  }
+
+  document.getElementById('roleFilterMenu').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-role]');
+    if (!btn) return;
+    roleFilter = btn.getAttribute('data-role');
+    document.getElementById('roleFilterLabel').textContent = roleFilter === 'all' ? I18N.t('common.all') : roleFilter;
+    render();
+  });
+
+  document.getElementById('saveEmployeeBtn').addEventListener('click', async () => {
+    const name = document.getElementById('newEmpName').value.trim();
+    const email = document.getElementById('newEmpEmail').value.trim();
+    const password = document.getElementById('newEmpPassword').value;
+    if (!name || !email) {
+      Toast.error('Missing information', 'Name and email are required.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      Toast.error('Weak password', 'Temporary password must be at least 6 characters.');
+      return;
+    }
+
+    const saveBtn = document.getElementById('saveEmployeeBtn');
+    saveBtn.disabled = true;
+
+    // Firebase's client SDK signs in as the newly-created user immediately —
+    // there's no way to create an Auth account "on behalf of" someone else
+    // from the browser without an Admin-SDK backend. As a workaround, we
+    // create the account (which briefly signs us in as the receptionist),
+    // write their Firestore record using that same uid, then sign back out
+    // so the doctor can re-authenticate. See project notes for the proper
+    // fix (a Cloud Function using the Admin SDK).
+    const branchId = allBranches.length <= 1
+      ? (allBranches[0] ? allBranches[0].id : null)
+      : document.getElementById('newEmpBranch').value;
+    if (!branchId) {
+      Toast.error('No branch available', 'This clinic has no branch to assign the receptionist to yet.');
+      return;
+    }
+
+    const doctorEmail = auth.currentUser ? auth.currentUser.email : null;
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      const newEmployee = {
+        clinicId, branchId, name, role: 'Receptionist',
+        department: document.getElementById('newEmpDept').value.trim() || 'Front Desk',
+        email, phone: document.getElementById('newEmpPhone').value.trim(),
+        status: 'active', avatarColor: 'F59E0B', lastLogin: '—',
+        permissions: { ...RECEPTIONIST_DEFAULT_PERMISSIONS },
+      };
+      await db.collection('employees').doc(cred.user.uid).set(newEmployee);
+      await auth.signOut();
+
+      document.getElementById('newEmpName').value = '';
+      document.getElementById('newEmpDept').value = '';
+      document.getElementById('newEmpEmail').value = '';
+      document.getElementById('newEmpPhone').value = '';
+      document.getElementById('newEmpPassword').value = '';
+      Modal.close('newEmployeeModal');
+
+      Toast.success('Receptionist added', `${name} can sign in with ${email}. Please sign back in as the clinic to continue — you were signed out when their account was created.`);
+      setTimeout(() => { window.location.href = '../public/login.html'; }, 2500);
+    } catch (err) {
+      Toast.error('Could not create account', err.message || 'Please try again.');
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  MOCK_API.getBranches(clinicId).then(data => {
+    allBranches = data;
+    populateBranchSelect();
+    render();
+  });
+
+  MOCK_API.getEmployees(clinicId).then(data => {
+    allEmployees = data;
+    buildRoleMenu();
+    render();
+  });
+  document.addEventListener('i18n:changed', () => { buildRoleMenu(); render(); });
+</script>
+</body>
+</html>

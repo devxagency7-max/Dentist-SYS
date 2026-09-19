@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="reports.title">Reports</h1>
+      <p class="page-header__desc" data-i18n="reports.desc">Insights and analytics for your clinic</p>
+    </div>
+    <div class="page-header__actions">
+      <div class="dropdown">
+        <button class="dropdown-toggle" data-dropdown-toggle><span class="icon-calendar"></span><span id="rangeLabel" data-i18n="common.this_week">This Week</span><span class="icon-chevron"></span></button>
+        <div class="dropdown-menu dropdown-menu-end" id="rangeMenu"></div>
+      </div>
+      <button class="btn btn-secondary"><span class="icon-download"></span><span data-i18n="common.export">Export</span></button>
+    </div>
+  </div>
+
+  <div class="tabs mb-4">
+    <button class="tab active" data-report="revenue" data-i18n="reports.tab_revenue">Revenue</button>
+    <button class="tab" data-report="appointments" data-i18n="reports.tab_appointments">Appointments</button>
+    <button class="tab" data-report="patients" data-i18n="reports.tab_patients">Patients</button>
+    <button class="tab" data-report="noshows" data-i18n="reports.tab_noshows">No-Shows</button>
+    <button class="tab" data-report="treatments" data-i18n="reports.tab_treatments">Treatments</button>
+    <button class="tab" data-report="employees" data-i18n="reports.tab_employees">Employee Performance</button>
+  </div>
+
+  <div class="grid-stats" id="statsGrid"></div>
+
+  <div data-report-panel="revenue">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title" data-i18n="dashboard.revenue_overview">Revenue Overview</div></div>
+        <canvas id="revenueCanvas" style="width:100%; height:260px;"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title" data-i18n="dashboard.appointment_status">Appointment Status</div></div>
+        <canvas id="statusCanvas" style="width:100%; height:200px;"></canvas>
+        <div class="chart-legend" id="statusLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-report-panel="noshows" class="hidden">
+    <div class="card">
+      <div class="card-header"><div class="card-title" data-i18n="reports.noshow_trend">No-Show Trend</div></div>
+      <canvas id="noShowCanvas" style="width:100%; height:260px;"></canvas>
+    </div>
+  </div>
+
+  <div data-report-panel="employees" class="hidden">
+    <div class="card">
+      <div class="card-header"><div class="card-title" data-i18n="reports.employee_performance">Employee Performance</div></div>
+      <div class="table-wrap">
+        <table class="data-table to-cards">
+          <thead><tr><th data-i18n="reports.employee">Employee</th><th data-i18n="reports.appointments_col">Appointments</th><th data-i18n="reports.revenue_col">Revenue</th><th data-i18n="reports.rating">Rating</th></tr></thead>
+          <tbody id="employeeRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4" style="margin-top: var(--space-5);" id="treatmentTableCard">
+    <div class="card-header"><div class="card-title" data-i18n="reports.treatment_popularity">Treatment Popularity</div></div>
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead><tr><th data-i18n="common.treatment">Treatment</th><th data-i18n="reports.patients_col">Patients</th><th data-i18n="treatments.cost">Revenue</th></tr></thead>
+        <tbody id="treatmentRows"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/charts.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'reports' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-calendar').innerHTML = ICONS.calendar;
+  document.querySelector('.icon-chevron').innerHTML = ICONS.chevronDown;
+  document.querySelector('.icon-download').innerHTML = ICONS.download;
+
+  function buildRangeMenu() {
+    const ranges = [
+      { key: 'today_short', label: I18N.t('common.today_short') },
+      { key: 'this_week', label: I18N.t('common.this_week') },
+      { key: 'this_month', label: I18N.t('common.this_month') },
+      { key: 'this_year', label: I18N.t('common.this_year') },
+      { key: 'custom_range', label: I18N.t('common.custom_range') },
+    ];
+    document.getElementById('rangeMenu').innerHTML = ranges.map(r => `<button class="dropdown-item" data-range="${r.key}">${r.label}</button>`).join('');
+  }
+  document.getElementById('rangeMenu').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-range]');
+    if (!btn) return;
+    document.getElementById('rangeLabel').textContent = btn.textContent;
+  });
+
+  document.querySelector('.tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-report]');
+    if (!btn) return;
+    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.getAttribute('data-report');
+    document.querySelectorAll('[data-report-panel]').forEach(panel => {
+      panel.classList.toggle('hidden', panel.getAttribute('data-report-panel') !== target);
+    });
+    document.getElementById('treatmentTableCard').classList.toggle('hidden', target !== 'revenue' && target !== 'treatments' && target !== 'patients');
+    if (target === 'noshows') renderNoShowChart();
+    if (target === 'employees') renderEmployeeTable();
+  });
+
+  async function renderNoShowChart() {
+    const data = await MOCK_API.getNoShowChart();
+    Charts.barChart('noShowCanvas', data);
+  }
+
+  async function renderEmployeeTable() {
+    const employees = await MOCK_API.getEmployeePerformance();
+    document.getElementById('employeeRows').innerHTML = employees.map(e => `
+      <tr>
+        <td class="fw-medium">${e.name}</td>
+        <td class="cell-muted">${e.appointments}</td>
+        <td class="fw-semibold">$${e.revenue}</td>
+        <td><span class="badge badge-success">★ ${e.rating}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  async function renderStats() {
+    const payments = await MOCK_API.getPayments(clinicId);
+    const patients = await MOCK_API.getPatients(clinicId);
+    const totalRevenue = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+
+    const stats = [
+      { label: I18N.t('reports.total_revenue'), value: '$' + totalRevenue, icon: 'dollar', color: 'green', trend: '+14%', trendDir: 'up' },
+      { label: I18N.t('dashboard.total_patients'), value: patients.length, icon: 'users', color: 'blue', trend: '+3', trendDir: 'up' },
+      { label: I18N.t('reports.avg_treatment_cost'), value: '$285', icon: 'treatments', color: 'teal', trend: '-2%', trendDir: 'down' },
+      { label: I18N.t('reports.retention_rate'), value: '92%', icon: 'checkCircle', color: 'cyan', trend: '+1.2%', trendDir: 'up' },
+    ];
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card">
+        <div class="stat-card__info">
+          <div class="stat-card__label">${s.label}</div>
+          <div class="stat-card__value">${s.value}</div>
+          <span class="stat-card__trend ${s.trendDir}">${s.trend}</span>
+        </div>
+        <div class="stat-card__icon ${s.color}">${icon(s.icon)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function renderCharts() {
+    const revenue = await MOCK_API.getRevenueChart();
+    const statusData = await MOCK_API.getAppointmentStatusChart();
+    Charts.barChart('revenueCanvas', revenue);
+    Charts.donutChart('statusCanvas', statusData);
+    document.getElementById('statusLegend').innerHTML = statusData && statusData.labels ? statusData.labels.map((l, i) => `
+      <div class="chart-legend__item">
+        <span class="chart-legend__dot" style="background:${statusData.colors[i]}"></span>
+        <span>${I18N.t('status.' + l.toLowerCase().replace(' ', '_'))} (${statusData.values[i]})</span>
+      </div>
+    `).join('') : '';
+  }
+
+  async function renderTreatmentTable() {
+    const treatments = await MOCK_API.getTreatments(clinicId);
+    document.getElementById('treatmentRows').innerHTML = treatments
+      .slice().sort((a, b) => b.patientsCount - a.patientsCount)
+      .map(t => `
+        <tr>
+          <td data-label="${I18N.t('common.treatment')}" class="fw-medium">${t.name}</td>
+          <td data-label="${I18N.t('reports.patients_col')}" class="cell-muted">${t.patientsCount}</td>
+          <td data-label="${I18N.t('reports.revenue_col')}" class="fw-semibold">$${t.cost * t.patientsCount}</td>
+        </tr>
+      `).join('');
+  }
+
+  buildRangeMenu();
+  renderStats();
+  renderCharts();
+  renderTreatmentTable();
+  document.addEventListener('i18n:changed', () => { buildRangeMenu(); renderStats(); renderCharts(); renderTreatmentTable(); });
+  document.addEventListener('theme:changed', () => { renderCharts(); renderNoShowChart(); });
+  window.addEventListener('resize', () => { renderCharts(); renderNoShowChart(); });
+</script>
+</body>
+</html>

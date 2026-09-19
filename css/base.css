@@ -1,0 +1,89 @@
+/* ==========================================================================
+   Base typography & utility classes
+   ========================================================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  color: var(--color-text);
+}
+
+h1 { font-size: var(--fs-3xl); }
+h2 { font-size: var(--fs-2xl); }
+h3 { font-size: var(--fs-xl); }
+h4 { font-size: var(--fs-lg); }
+
+p { color: var(--color-text); }
+
+.text-muted { color: var(--color-text-muted); }
+.text-sm { font-size: var(--fs-sm); }
+.text-xs { font-size: var(--fs-xs); }
+.text-lg { font-size: var(--fs-lg); }
+.fw-medium { font-weight: var(--fw-medium); }
+.fw-semibold { font-weight: var(--fw-semibold); }
+.fw-bold { font-weight: var(--fw-bold); }
+
+/* Layout utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+
+.grid { display: grid; }
+
+.hidden { display: none !important; }
+
+.w-full { width: 100%; }
+
+/* Container */
+.container {
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+/* Direction-aware margin/padding helpers (logical properties everywhere) */
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+
+/* Screen-reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  border: none;
+  width: 100%;
+}
+
+/* Link */
+.link {
+  color: var(--color-primary);
+  font-weight: var(--fw-medium);
+}
+.link:hover {
+  text-decoration: underline;
+}

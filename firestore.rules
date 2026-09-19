@@ -1,0 +1,197 @@
+rules_version = '2';
+
+// Dental Clinic multi-tenant rules.
+// - Doctors: the clinics/{clinicId} document id IS the doctor's Auth uid.
+// - Receptionists: an employees/{uid} doc with role "Receptionist" and a
+//   clinicId field pointing at the doctor who created them.
+// - Every clinic-scoped collection carries a clinicId field; a signed-in
+//   user may only read/write documents whose clinicId matches their own.
+// - A few collections are shared, read-only marketing/reference content.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The clinicId this signed-in user belongs to: their own uid if they are
+    // the doctor (clinics/{uid} exists), otherwise the clinicId on their
+    // employees/{uid} record if they are staff. Returns null if neither.
+    function myClinicId() {
+      return isSignedIn()
+        ? (
+            exists(/databases/$(database)/documents/clinics/$(request.auth.uid))
+              ? request.auth.uid
+              : (
+                  exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+                    ? get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.clinicId
+                    : null
+                )
+          )
+        : null;
+    }
+
+    function belongsToMyClinic(data) {
+      return isSignedIn() && data.clinicId == myClinicId();
+    }
+
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.superAdmin == true;
+    }
+
+    // The caller's role: 'Doctor' if they own a clinics/{uid} doc, otherwise
+    // whatever role their employees/{uid} record says (e.g. 'Receptionist').
+    // Null if the caller isn't signed in or isn't linked to either.
+    function myRole() {
+      return isSignedIn()
+        ? (
+            exists(/databases/$(database)/documents/clinics/$(request.auth.uid))
+              ? 'Doctor'
+              : (
+                  exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+                    ? get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role
+                    : null
+                )
+          )
+        : null;
+    }
+
+    // The branchId a receptionist is pinned to (from their employees/{uid}
+    // doc). Meaningless/unused for a doctor, who is never branch-restricted.
+    function myBranchId() {
+      return isSignedIn() && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.branchId
+        : null;
+    }
+
+    // Like belongsToMyClinic, but a Receptionist is additionally restricted
+    // to their own branch. A Doctor always sees every branch of their clinic.
+    function belongsToMyScope(data) {
+      return belongsToMyClinic(data)
+        && (myRole() != 'Receptionist' || data.branchId == myBranchId());
+    }
+
+    // ---------------- Clinics ----------------
+    // A doctor can read/update only their own clinic document (doc id == their uid).
+    // Creation happens via a Cloud Function (Admin SDK), not the client.
+    match /clinics/{clinicId} {
+      allow read: if true;
+      allow update: if isSuperAdmin() || (isSignedIn() && request.auth.uid == clinicId);
+      allow create, delete: if isSuperAdmin();
+    }
+
+    // ---------------- Branches ----------------
+    // One doctor can have several branches/locations. Public read is required
+    // for the signed-out patient booking page's branch picker. Only Super
+    // Admin (via approveBranchRequest) creates or deletes a branch; the owning
+    // doctor may still update their own branch's details (address, hours...).
+    match /branches/{id} {
+      allow read: if true;
+      allow update: if isSignedIn() && resource.data.clinicId == request.auth.uid;
+      allow create, delete: if isSuperAdmin();
+    }
+
+    // A doctor requests a new branch; only Super Admin resolves the request
+    // (approving it is what actually creates the branches/{id} doc above).
+    match /branchRequests/{id} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.clinicId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.clinicId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isSuperAdmin();
+    }
+
+    // ---------------- Clinic-scoped collections ----------------
+    match /patients/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+      allow update: if belongsToMyScope(resource.data) && belongsToMyScope(request.resource.data);
+      allow delete: if belongsToMyScope(resource.data);
+    }
+
+    match /appointments/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+      allow update: if belongsToMyScope(resource.data) && belongsToMyScope(request.resource.data);
+      allow delete: if belongsToMyScope(resource.data);
+    }
+
+    match /queue/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+      allow update: if belongsToMyScope(resource.data) && belongsToMyScope(request.resource.data);
+      allow delete: if belongsToMyScope(resource.data);
+    }
+
+    match /payments/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+      allow update: if belongsToMyScope(resource.data) && belongsToMyScope(request.resource.data);
+      allow delete: if belongsToMyScope(resource.data);
+    }
+
+    match /notifications/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+      allow update: if belongsToMyScope(resource.data);
+      allow delete: if belongsToMyScope(resource.data);
+    }
+
+    match /messageLog/{id} {
+      allow read: if belongsToMyScope(resource.data);
+      allow create: if belongsToMyScope(request.resource.data);
+    }
+
+    // Employees: normally only the owning doctor manages staff records for
+    // their own clinic. A receptionist may read their own record (to load
+    // their profile) but not the whole roster.
+    //
+    // INTERIM WORKAROUND: this app currently creates a receptionist's Auth
+    // account from the doctor's browser session (the client SDK has no way
+    // to create an account "for someone else" without an Admin-SDK backend).
+    // That momentarily signs in AS the new receptionist, so the create rule
+    // below also allows a brand-new user to write their OWN employees/{uid}
+    // doc, provided the clinicId they claim points at a real clinic and the
+    // role is fixed to "Receptionist" (never "Doctor" or anything with wider
+    // access). Replace this with a Cloud Function (Admin SDK) doing the
+    // account creation server-side, then tighten this back to
+    // "only the owning doctor creates staff" once that ships.
+    match /employees/{id} {
+      allow read: if isSignedIn() && (belongsToMyClinic(resource.data) || request.auth.uid == id);
+      allow create: if isSignedIn() && (
+        request.resource.data.clinicId == request.auth.uid // a doctor creating staff under their own clinic
+        || (
+          request.auth.uid == id
+          && request.resource.data.role == 'Receptionist'
+          && exists(/databases/$(database)/documents/clinics/$(request.resource.data.clinicId))
+          && exists(/databases/$(database)/documents/branches/$(request.resource.data.branchId))
+          // The claimed branch must actually belong to the claimed clinic —
+          // otherwise a self-signup could pair any real clinicId with any
+          // real branchId and read/write that clinic's data via belongsToMyScope.
+          && get(/databases/$(database)/documents/branches/$(request.resource.data.branchId)).data.clinicId == request.resource.data.clinicId
+        )
+      );
+      allow update, delete: if isSignedIn() && resource.data.clinicId == request.auth.uid;
+    }
+
+    // ---------------- Shared, unscoped collections ----------------
+    // Service catalog: shared across a doctor's own branches, not across
+    // doctors. Readable by anyone (including the signed-out public booking
+    // page); writable only by the owning doctor.
+    match /treatments/{id} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.resource.data.clinicId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.clinicId == request.auth.uid;
+    }
+    // Chart/reporting docs: clinic-signed-in users only, read-only from client.
+    match /charts/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /employeePerformance/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

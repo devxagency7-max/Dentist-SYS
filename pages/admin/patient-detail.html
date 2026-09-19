@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patient Detail — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  .patient-hero {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+  }
+  .patient-hero__meta { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-2); }
+  .patient-hero__meta-item { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--color-text-muted); }
+  .patient-hero__meta-item svg { width: 15px; height: 15px; }
+
+  .detail-grid { display: grid; grid-template-columns: 280px 1fr; gap: var(--space-5); align-items: flex-start; }
+  .info-row { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); font-size: var(--fs-sm); }
+  .info-row:last-child { border-bottom: none; }
+  .info-row__label { color: var(--color-text-muted); }
+  .info-row__value { font-weight: var(--fw-medium); text-align: end; }
+
+  .allergy-pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-full);
+    background: var(--color-danger-light); color: var(--color-danger); font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  }
+
+  .timeline-row { display: flex; gap: var(--space-3); padding-bottom: var(--space-4); position: relative; }
+  .timeline-row:not(:last-child)::before {
+    content: ''; position: absolute; left: 15px; top: 34px; bottom: -4px; width: 2px; background: var(--color-border);
+  }
+  html[dir="rtl"] .timeline-row:not(:last-child)::before { left: auto; right: 15px; }
+  .timeline-dot { width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; z-index:1; }
+  .timeline-dot svg { width: 15px; height: 15px; }
+  .timeline-body { flex: 1; }
+
+  .attachment-item { display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .attachment-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--color-surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0; color: var(--color-text-muted); }
+  .attachment-icon svg { width: 18px; height: 18px; }
+
+  .note-item { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
+  .note-item:last-child { border-bottom: none; }
+
+  @media (max-width: 900px) {
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="breadcrumbs">
+    <a href="patients.html" data-i18n="patient_detail.breadcrumb_patients">Patients</a>
+    __ICON_CHEVRON__
+    <span id="breadcrumbName">Patient</span>
+  </div>
+
+  <div class="card mb-4" style="margin-bottom: var(--space-5);">
+    <div class="patient-hero">
+      <div class="avatar avatar-lg" id="heroAvatar" style="width:76px;height:76px;font-size:var(--fs-2xl);"></div>
+      <div class="flex-1" style="min-width:240px;">
+        <div class="flex items-center gap-3">
+          <h2 id="heroName">—</h2>
+          <span class="badge" id="heroStatus"></span>
+        </div>
+        <div class="patient-hero__meta" id="heroMeta"></div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-secondary"><span class="icon-edit"></span><span data-i18n="patient_detail.edit">Edit</span></button>
+        <button class="btn btn-primary" data-modal-open="bookingWizardModal"><span class="icon-plus"></span><span data-i18n="patient_detail.book_appointment">Book Appointment</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-grid" data-tabs-root>
+    <div class="flex flex-col gap-4">
+      <div class="card">
+        <div class="card-header"><div class="card-title text-sm" data-i18n="patient_detail.contact_information">Contact Information</div></div>
+        <div id="contactInfo"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title text-sm" data-i18n="patient_detail.allergies">Allergies</div></div>
+        <div class="flex flex-wrap gap-2" id="allergiesList"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title text-sm" data-i18n="patient_detail.outstanding_balance">Outstanding Balance</div></div>
+        <div class="stat-card__value" id="balanceValue" style="font-size: var(--fs-2xl);"></div>
+        <div class="text-sm text-muted mt-1" id="balanceNote"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tabs mb-4">
+        <button class="tab active" data-tab-target="overview" data-i18n="patient_detail.tab_overview">Overview</button>
+        <button class="tab" data-tab-target="appointments" data-i18n="patient_detail.tab_appointments">Appointments</button>
+        <button class="tab" data-tab-target="treatments" data-i18n="patient_detail.tab_treatments">Treatments</button>
+        <button class="tab" data-tab-target="prescriptions" data-i18n="patient_detail.tab_prescriptions">Prescriptions</button>
+        <button class="tab" data-tab-target="payments" data-i18n="patient_detail.tab_payments">Payments</button>
+        <button class="tab" data-tab-target="attachments" data-i18n="patient_detail.tab_attachments">Attachments</button>
+        <button class="tab" data-tab-target="notes" data-i18n="patient_detail.tab_notes">Notes</button>
+      </div>
+
+      <div data-tab-panel="overview" class="card">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.medical_history">Medical History</div></div>
+        <p class="text-sm" id="medicalHistoryText" style="line-height: var(--lh-relaxed);"></p>
+        <div class="divider" style="margin: var(--space-5) 0;"></div>
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.personal_information">Personal Information</div></div>
+        <div id="personalInfo"></div>
+      </div>
+
+      <div data-tab-panel="appointments" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.appointment_history">Appointment History</div></div>
+        <div class="flex flex-col gap-3" id="apptTimeline"></div>
+      </div>
+
+      <div data-tab-panel="treatments" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.treatments_received">Treatments Received</div></div>
+        <div class="flex flex-col gap-2" id="treatmentsDone"></div>
+      </div>
+
+      <div data-tab-panel="prescriptions" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.tab_prescriptions">Prescriptions</div></div>
+        <div class="flex flex-col gap-3" id="prescriptionsList"></div>
+      </div>
+
+      <div data-tab-panel="payments" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.payment_history">Payment History</div></div>
+        <div class="table-wrap">
+          <table class="data-table to-cards">
+            <thead><tr><th data-i18n="patient_detail.invoice">Invoice</th><th data-i18n="common.treatment">Treatment</th><th data-i18n="common.amount">Amount</th><th data-i18n="common.date">Date</th><th data-i18n="notifications_page.status">Status</th></tr></thead>
+            <tbody id="paymentsRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div data-tab-panel="attachments" class="card hidden">
+        <div class="card-header">
+          <div class="card-title" data-i18n="patient_detail.tab_attachments">Attachments</div>
+          <button class="btn btn-secondary btn-sm"><span class="icon-upload"></span><span data-i18n="patient_detail.upload">Upload</span></button>
+        </div>
+        <div class="flex flex-col gap-2" id="attachmentsList"></div>
+      </div>
+
+      <div data-tab-panel="notes" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="patient_detail.clinical_notes">Clinical Notes</div></div>
+        <div class="form-group">
+          <textarea class="form-control" id="newNoteInput" data-i18n-placeholder="patient_detail.note_placeholder" placeholder="Add a note about this patient..."></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" id="addNoteBtn" style="margin-bottom: var(--space-4);" data-i18n="patient_detail.add_note">Add Note</button>
+        <div id="notesList"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/booking-wizard.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'patients' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML.replace('__ICON_CHEVRON__', ICONS.chevronRight);
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-edit').innerHTML = ICONS.edit;
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+  document.querySelector('.icon-upload').innerHTML = ICONS.download;
+
+  const params = new URLSearchParams(window.location.search);
+  const patientId = params.get('id') || 'P-1001';
+
+  function statusBadge(status, map) {
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status) || status}</span>`;
+  }
+  const APPT_STATUS_MAP = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+  const PAY_STATUS_MAP = { paid: 'success', pending: 'warning', overdue: 'danger', partial: 'warning' };
+
+  async function render() {
+    const patient = await MOCK_API.getPatient(patientId);
+    if (!patient) {
+      content.innerHTML = `<div class="error-state"><div class="error-state__icon">${icon('alertTriangle')}</div><div class="error-state__title">${I18N.t('patient_detail.patient_not_found')}</div></div>`;
+      return;
+    }
+
+    document.getElementById('breadcrumbName').textContent = patient.name;
+    document.getElementById('heroAvatar').style.background = `#${patient.avatarColor}22`;
+    document.getElementById('heroAvatar').style.color = `#${patient.avatarColor}`;
+    document.getElementById('heroAvatar').textContent = patient.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+    document.getElementById('heroName').textContent = patient.name;
+    document.getElementById('heroStatus').outerHTML = statusBadge(patient.status, { active: 'success', inactive: 'neutral' });
+    document.getElementById('heroMeta').innerHTML = `
+      <span class="patient-hero__meta-item">${ICONS.user}${patient.id}</span>
+      <span class="patient-hero__meta-item">${ICONS.phone}${patient.phone}</span>
+      <span class="patient-hero__meta-item">${ICONS.calendar}${patient.age} ${I18N.t('patient_detail.years_suffix')} · ${I18N.t('common.' + patient.gender)}</span>
+      <span class="patient-hero__meta-item">${ICONS.clock}${I18N.t('patient_detail.last_visit_prefix')} ${patient.lastVisit}</span>
+    `;
+
+    document.getElementById('contactInfo').innerHTML = `
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.phone')}</span><span class="info-row__value">${patient.phone}</span></div>
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.email')}</span><span class="info-row__value">${patient.email}</span></div>
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.address')}</span><span class="info-row__value">${patient.address}</span></div>
+    `;
+
+    document.getElementById('allergiesList').innerHTML = patient.allergies.length
+      ? patient.allergies.map(a => `<span class="allergy-pill">${ICONS.alertTriangle.replace('viewBox="0 0 24 24"', 'viewBox="0 0 24 24" width="12" height="12"')}${a}</span>`).join('')
+      : `<span class="text-sm text-muted">${I18N.t('patient_detail.no_known_allergies')}</span>`;
+
+    document.getElementById('balanceValue').textContent = '$' + patient.balance;
+    document.getElementById('balanceValue').style.color = patient.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)';
+    document.getElementById('balanceNote').textContent = patient.balance > 0 ? I18N.t('patient_detail.balance_outstanding') : I18N.t('patient_detail.balance_settled');
+
+    document.getElementById('medicalHistoryText').textContent = patient.medicalHistory;
+    document.getElementById('personalInfo').innerHTML = `
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.date_of_birth')}</span><span class="info-row__value">${patient.dob}</span></div>
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.gender')}</span><span class="info-row__value">${I18N.t('common.' + patient.gender)}</span></div>
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.blood_type')}</span><span class="info-row__value">${patient.bloodType}</span></div>
+      <div class="info-row"><span class="info-row__label">${I18N.t('patient_detail.upcoming_appointment')}</span><span class="info-row__value">${patient.upcoming || '—'}</span></div>
+    `;
+
+    const appointments = await MOCK_API.getAppointments(clinicId);
+    const patientAppts = appointments.filter(a => a.patientId === patient.id);
+    document.getElementById('apptTimeline').innerHTML = patientAppts.length ? patientAppts.map(a => `
+      <div class="timeline-row">
+        <div class="timeline-dot">${ICONS.calendarCheck}</div>
+        <div class="timeline-body">
+          <div class="flex items-center justify-between gap-2">
+            <span class="fw-semibold">${a.treatment}</span>
+            ${statusBadge(a.status, APPT_STATUS_MAP)}
+          </div>
+          <div class="text-sm text-muted">${a.date} at ${a.time} · ${a.doctor}</div>
+        </div>
+      </div>
+    `).join('') : `<div class="empty-state"><div class="empty-state__icon">${icon('calendar')}</div><div class="empty-state__title">${I18N.t('patient_detail.no_appointments_yet')}</div></div>`;
+
+    document.getElementById('treatmentsDone').innerHTML = patient.treatmentsDone.length ? patient.treatmentsDone.map(t => `
+      <div class="flex items-center justify-between" style="padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);">
+        <span class="fw-medium text-sm">${t}</span>
+        <span class="badge badge-success">${I18N.t('patient_detail.completed')}</span>
+      </div>
+    `).join('') : `<div class="text-sm text-muted">${I18N.t('patient_detail.no_treatments_recorded')}</div>`;
+
+    document.getElementById('prescriptionsList').innerHTML = patient.prescriptions.length ? patient.prescriptions.map(p => `
+      <div class="flex items-start gap-3" style="padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+        <div class="stat-card__icon blue" style="width:38px;height:38px;flex-shrink:0;"><span style="width:18px;height:18px;display:inline-flex;">${ICONS.treatments}</span></div>
+        <div class="flex-1">
+          <div class="fw-semibold text-sm">${p.name}</div>
+          <div class="text-xs text-muted mt-1">${p.notes}</div>
+          <div class="text-xs text-muted mt-1">${I18N.t('patient_detail.prescribed_by')} ${p.doctor} · ${p.date}</div>
+        </div>
+      </div>
+    `).join('') : `<div class="empty-state"><div class="empty-state__icon">${icon('treatments')}</div><div class="empty-state__title">${I18N.t('patient_detail.no_prescriptions')}</div></div>`;
+
+    const payments = await MOCK_API.getPayments(clinicId);
+    const patientPayments = payments.filter(p => p.patientId === patient.id);
+    document.getElementById('paymentsRows').innerHTML = patientPayments.length ? patientPayments.map(p => `
+      <tr>
+        <td data-label="${I18N.t('patient_detail.invoice')}" class="fw-medium">${p.id}</td>
+        <td data-label="${I18N.t('common.treatment')}" class="cell-muted">${p.treatment}</td>
+        <td data-label="${I18N.t('common.amount')}" class="fw-semibold">$${p.amount}</td>
+        <td data-label="${I18N.t('common.date')}" class="cell-muted">${p.date}</td>
+        <td data-label="${I18N.t('notifications_page.status')}">${statusBadge(p.status, PAY_STATUS_MAP)}</td>
+      </tr>
+    `).join('') : `<tr><td colspan="5"><div class="empty-state"><div class="empty-state__title">${I18N.t('patient_detail.no_payment_records')}</div></div></td></tr>`;
+
+    document.getElementById('attachmentsList').innerHTML = patient.attachments.length ? patient.attachments.map(a => `
+      <div class="attachment-item">
+        <div class="attachment-icon">${a.type === 'pdf' ? ICONS.reports : ICONS.eye}</div>
+        <div class="flex-1">
+          <div class="fw-medium text-sm">${a.name}</div>
+          <div class="text-xs text-muted">${a.size} · ${a.date}</div>
+        </div>
+        <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('patient_detail.download')}">${icon('download')}</button>
+      </div>
+    `).join('') : `<div class="empty-state"><div class="empty-state__icon">${icon('inbox')}</div><div class="empty-state__title">${I18N.t('patient_detail.no_attachments')}</div></div>`;
+
+    renderNotes(patient);
+  }
+
+  function renderNotes(patient) {
+    document.getElementById('notesList').innerHTML = patient.notes.length ? patient.notes.map(n => `
+      <div class="note-item">
+        <div class="flex items-center justify-between">
+          <span class="fw-semibold text-sm">${n.author}</span>
+          <span class="text-xs text-muted">${n.date}</span>
+        </div>
+        <p class="text-sm text-muted mt-1">${n.text}</p>
+      </div>
+    `).join('') : `<div class="text-sm text-muted">${I18N.t('patient_detail.no_notes_yet')}</div>`;
+  }
+
+  document.getElementById('addNoteBtn').addEventListener('click', async () => {
+    const input = document.getElementById('newNoteInput');
+    if (!input.value.trim()) return;
+    const patient = await MOCK_API.getPatient(patientId);
+    const clinic = await MOCK_API.getClinicById(clinicId);
+    patient.notes.unshift({ author: clinic ? clinic.doctorName : 'Dr. Amir Khalid', date: '2026-09-02', text: input.value.trim() });
+    input.value = '';
+    renderNotes(patient);
+    Toast.success(I18N.t('toast.saved_title'));
+  });
+
+  render();
+  BookingWizard.mount();
+  document.addEventListener('booking:created', render);
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin — Doctor Accounts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  body { background: var(--color-bg); }
+  .sa-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-surface); border-bottom: 1px solid var(--color-border);
+  }
+  .sa-topbar__brand { display: flex; align-items: center; gap: var(--space-3); font-weight: var(--fw-bold); }
+  .sa-badge {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    background: var(--color-primary-light); color: var(--color-primary);
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+    padding: 4px var(--space-3); border-radius: var(--radius-full);
+  }
+  .sa-content { max-width: 1000px; margin: 0 auto; padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); }
+  .sa-credentials {
+    background: var(--color-primary-light); border-radius: var(--radius-md);
+    padding: var(--space-4); font-size: var(--fs-sm); margin-top: var(--space-4);
+  }
+</style>
+</head>
+<body>
+
+<div class="sa-topbar">
+  <div class="sa-topbar__brand">
+    <span class="sa-badge">Super Admin</span>
+    <span>Doctor Accounts</span>
+  </div>
+  <button class="btn btn-secondary btn-sm" id="saLogoutBtn">Log Out</button>
+</div>
+
+<div class="sa-content">
+
+  <div class="card">
+    <div class="page-header" style="margin-bottom: var(--space-4);">
+      <div>
+        <h2 class="page-header__title" style="font-size: var(--fs-lg);">Create a doctor account</h2>
+        <p class="page-header__desc">This creates their real sign-in and their clinic in one step — no manual setup.</p>
+      </div>
+    </div>
+
+    <form id="createDoctorForm">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Clinic Name</label><input type="text" class="form-control" id="cdClinicName" placeholder="DentalCare Downtown Branch" required></div>
+        <div class="form-group"><label class="form-label">Doctor Name</label><input type="text" class="form-control" id="cdDoctorName" placeholder="Dr. Jane Smith" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Login Email</label><input type="email" class="form-control" id="cdEmail" placeholder="jane.smith@clinic.com" required></div>
+        <div class="form-group"><label class="form-label">Temporary Password</label><input type="text" class="form-control" id="cdPassword" placeholder="At least 6 characters" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-control" id="cdPhone" placeholder="+1 555-0100"></div>
+        <div class="form-group"><label class="form-label">WhatsApp Number</label><input type="tel" class="form-control" id="cdWhatsapp" placeholder="+1 555-0100"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input type="text" class="form-control" id="cdAddress" placeholder="123 Main Street, Springfield">
+      </div>
+      <button type="submit" class="btn btn-primary" id="createDoctorBtn">Create Account</button>
+    </form>
+
+    <div class="sa-credentials" id="lastCreatedBox" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <div class="page-header" style="margin-bottom: var(--space-4);">
+      <div>
+        <h2 class="page-header__title" style="font-size: var(--fs-lg);">Pending branch requests</h2>
+        <p class="page-header__desc">A doctor asked for a new branch/location from inside their own dashboard.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th>Doctor</th>
+            <th>Requested Branch</th>
+            <th>Address</th>
+            <th>Phone</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="branchRequestsTableBody">
+          <tr><td colspan="5"><div class="empty-state"><div class="empty-state__title">Loading…</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="page-header" style="margin-bottom: var(--space-4);">
+      <div>
+        <h2 class="page-header__title" style="font-size: var(--fs-lg);">Existing doctor accounts</h2>
+        <p class="page-header__desc">Everyone who currently has a clinic on this system.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th>Doctor</th>
+            <th>Clinic</th>
+            <th>Login Email</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="clinicsTableBody">
+          <tr><td colspan="6"><div class="empty-state"><div class="empty-state__title">Loading…</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-functions.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/components.js"></script>
+<script>
+  let isSuperAdmin = false;
+
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) { window.location.href = 'login.html'; return; }
+    const tokenResult = await user.getIdTokenResult();
+    if (tokenResult.claims.superAdmin !== true) {
+      await auth.signOut();
+      window.location.href = 'login.html';
+      return;
+    }
+    isSuperAdmin = true;
+    loadClinics();
+    loadBranchRequests();
+  });
+
+  document.getElementById('saLogoutBtn').addEventListener('click', () => {
+    auth.signOut().then(() => { window.location.href = 'login.html'; });
+  });
+
+  function statusBadge(status) {
+    return status === 'disabled'
+      ? '<span class="badge badge-danger">Disabled</span>'
+      : '<span class="badge badge-success">Active</span>';
+  }
+
+  async function branchLinksFor(clinicId) {
+    const snapshot = await db.collection('branches').where('clinicId', '==', clinicId).get();
+    const branches = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (!branches.length) return '<span class="text-xs text-muted">No branches yet</span>';
+    return branches.map((b) => `
+      <a href="../public/booking.html?clinic=${clinicId}&branch=${b.id}" target="_blank" class="link text-xs" style="display:block;">
+        ${b.name}${b.status === 'disabled' ? ' (disabled)' : ''} ↗
+      </a>
+    `).join('');
+  }
+
+  function renderClinics(clinics) {
+    const tbody = document.getElementById('clinicsTableBody');
+    if (!clinics.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state__title">No doctor accounts yet</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = clinics.map(c => `
+      <tr>
+        <td data-label="Doctor"><div class="fw-medium">${c.doctorName}</div></td>
+        <td data-label="Clinic">
+          <div class="cell-muted" style="margin-bottom:4px;">${c.clinicName}</div>
+          <div class="branch-links" data-clinic-id="${c.id}"><span class="text-xs text-muted">Loading branches…</span></div>
+        </td>
+        <td data-label="Login Email" class="cell-muted">${c.email}</td>
+        <td data-label="Phone" class="cell-muted">${c.phone || '—'}</td>
+        <td data-label="Status">${statusBadge(c.status)}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" data-toggle-id="${c.id}" data-toggle-status="${c.status === 'disabled' ? 'active' : 'disabled'}">
+            ${c.status === 'disabled' ? 'Enable' : 'Disable'}
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('[data-toggle-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const clinicId = btn.getAttribute('data-toggle-id');
+        const newStatus = btn.getAttribute('data-toggle-status');
+        btn.disabled = true;
+        try {
+          await db.collection('clinics').doc(clinicId).update({ status: newStatus });
+
+          // Disabling (or re-enabling) a doctor cascades to every branch they
+          // own — a disabled doctor shouldn't leave an active, bookable branch.
+          const branchesSnapshot = await db.collection('branches').where('clinicId', '==', clinicId).get();
+          if (!branchesSnapshot.empty) {
+            const batch = db.batch();
+            branchesSnapshot.docs.forEach((doc) => batch.update(doc.ref, { status: newStatus }));
+            await batch.commit();
+          }
+
+          Toast.success('Updated', newStatus === 'disabled' ? 'Doctor account and all their branches disabled.' : 'Doctor account and all their branches re-enabled.');
+          loadClinics();
+        } catch (err) {
+          btn.disabled = false;
+          Toast.error('Failed', err.message || 'Could not update the account.');
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.branch-links').forEach(async (el) => {
+      el.innerHTML = await branchLinksFor(el.getAttribute('data-clinic-id'));
+    });
+  }
+
+  const DEFAULT_WORKING_HOURS = [
+    { day: 'Sunday', enabled: false, open: '09:00', close: '17:00' },
+    { day: 'Monday', enabled: true, open: '09:00', close: '18:00' },
+    { day: 'Tuesday', enabled: true, open: '09:00', close: '18:00' },
+    { day: 'Wednesday', enabled: true, open: '09:00', close: '18:00' },
+    { day: 'Thursday', enabled: true, open: '09:00', close: '18:00' },
+    { day: 'Friday', enabled: true, open: '09:00', close: '15:00' },
+    { day: 'Saturday', enabled: false, open: '09:00', close: '14:00' },
+  ];
+
+  function renderBranchRequests(requests) {
+    const tbody = document.getElementById('branchRequestsTableBody');
+    const pending = requests.filter((r) => r.status === 'pending');
+    if (!pending.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state__title">No pending requests</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = pending.map((r) => `
+      <tr>
+        <td data-label="Doctor" class="cell-muted">${r.doctorName || r.clinicId}</td>
+        <td data-label="Requested Branch"><div class="fw-medium">${r.requestedName}</div></td>
+        <td data-label="Address" class="cell-muted">${r.requestedAddress || '—'}</td>
+        <td data-label="Phone" class="cell-muted">${r.requestedPhone || '—'}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-primary btn-sm" data-approve-id="${r.id}">Approve</button>
+            <button class="btn btn-secondary btn-sm" data-reject-id="${r.id}">Reject</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('[data-approve-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const requestId = btn.getAttribute('data-approve-id');
+        btn.disabled = true;
+        try {
+          const requestDoc = await db.collection('branchRequests').doc(requestId).get();
+          const r = requestDoc.data();
+          await db.collection('branches').add({
+            clinicId: r.clinicId,
+            name: r.requestedName,
+            address: r.requestedAddress || '',
+            phone: r.requestedPhone || '',
+            whatsappNumber: r.requestedPhone || '',
+            workingHours: DEFAULT_WORKING_HOURS,
+            status: 'active',
+            isDefault: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          await db.collection('branchRequests').doc(requestId).update({
+            status: 'approved',
+            resolvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            resolvedBy: auth.currentUser.uid,
+          });
+          Toast.success('Branch approved', `"${r.requestedName}" is now live.`);
+          loadBranchRequests();
+          loadClinics();
+        } catch (err) {
+          btn.disabled = false;
+          Toast.error('Failed', err.message || 'Could not approve the request.');
+        }
+      });
+    });
+
+    tbody.querySelectorAll('[data-reject-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const requestId = btn.getAttribute('data-reject-id');
+        btn.disabled = true;
+        try {
+          await db.collection('branchRequests').doc(requestId).update({
+            status: 'rejected',
+            resolvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            resolvedBy: auth.currentUser.uid,
+          });
+          Toast.success('Request rejected');
+          loadBranchRequests();
+        } catch (err) {
+          btn.disabled = false;
+          Toast.error('Failed', err.message || 'Could not reject the request.');
+        }
+      });
+    });
+  }
+
+  async function loadBranchRequests() {
+    try {
+      const snapshot = await db.collection('branchRequests').where('status', '==', 'pending').get();
+      const requests = await Promise.all(snapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        const clinicDoc = await db.collection('clinics').doc(data.clinicId).get();
+        return { id: doc.id, ...data, doctorName: clinicDoc.exists ? clinicDoc.data().doctorName : null };
+      }));
+      renderBranchRequests(requests);
+    } catch (err) {
+      Toast.error('Failed to load branch requests', err.message || 'Please refresh the page.');
+    }
+  }
+
+  async function loadClinics() {
+    try {
+      const snapshot = await db.collection('clinics').get();
+      const clinics = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          clinicName: data.clinicName || '',
+          doctorName: data.doctorName || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          status: data.status || 'active',
+          createdAt: data.createdAt ? data.createdAt.toMillis() : null,
+        };
+      });
+      clinics.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      renderClinics(clinics);
+    } catch (err) {
+      Toast.error('Failed to load accounts', err.message || 'Please refresh the page.');
+    }
+  }
+
+  document.getElementById('createDoctorForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('createDoctorBtn');
+    const payload = {
+      clinicName: document.getElementById('cdClinicName').value.trim(),
+      doctorName: document.getElementById('cdDoctorName').value.trim(),
+      email: document.getElementById('cdEmail').value.trim(),
+      password: document.getElementById('cdPassword').value,
+      phone: document.getElementById('cdPhone').value.trim(),
+      whatsappNumber: document.getElementById('cdWhatsapp').value.trim(),
+      address: document.getElementById('cdAddress').value.trim(),
+    };
+
+    if (!payload.clinicName || !payload.doctorName || !payload.email || !payload.password) {
+      Toast.error('Missing fields', 'Please fill in all required fields.');
+      return;
+    }
+    if (payload.password.length < 6) {
+      Toast.error('Password too short', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creating\u2026';
+    try {
+      // Create the Firebase Auth account for the doctor
+      const cred = await firebase.auth().createUserWithEmailAndPassword(payload.email, payload.password);
+      await cred.user.updateProfile({ displayName: payload.doctorName });
+      const uid = cred.user.uid;
+
+      // Write the clinic doc (id = doctor's uid)
+      await db.collection('clinics').doc(uid).set({
+        clinicName: payload.clinicName,
+        doctorName: payload.doctorName,
+        email: payload.email,
+        contactEmail: payload.email,
+        phone: payload.phone,
+        whatsappNumber: payload.whatsappNumber || payload.phone,
+        address: payload.address,
+        workingHours: DEFAULT_WORKING_HOURS,
+        status: 'active',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Every doctor starts with one default branch so the branch-scoped data
+      // model (receptionists, bookings) has something to attach to immediately.
+      await db.collection('branches').add({
+        clinicId: uid,
+        name: 'Main Branch',
+        address: payload.address,
+        phone: payload.phone,
+        whatsappNumber: payload.whatsappNumber || payload.phone,
+        workingHours: DEFAULT_WORKING_HOURS,
+        status: 'active',
+        isDefault: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // createUserWithEmailAndPassword switches session to the new user
+      // Sign back out so the super admin must re-authenticate
+      await firebase.auth().signOut();
+
+      const box = document.getElementById('lastCreatedBox');
+      box.style.display = 'block';
+      box.innerHTML = `
+        <strong>Doctor account created! Share these details with ${payload.doctorName}:</strong><br>
+        System link: <code>${window.location.origin}${window.location.pathname.replace('super-admin/dashboard.html', 'public/login.html')}</code><br>
+        Email: <code>${payload.email}</code><br>
+        Password: <code>${payload.password}</code><br><br>
+        <em style="color:var(--color-warning);">You were signed out. <a href="../public/login.html">Sign in again</a> as Super Admin to continue.</em>
+      `;
+      document.getElementById('createDoctorForm').reset();
+    } catch (err) {
+      const msg = err.code === 'auth/email-already-in-use'
+        ? 'An account with this email already exists.'
+        : (err.message || 'Please try again.');
+      Toast.error('Could not create account', msg);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    }
+  });
+</script>
+</body>
+</html>

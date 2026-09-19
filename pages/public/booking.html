@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book an Appointment — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/public.css">
+<style>
+  .booking-shell { max-width: 720px; margin: 0 auto; padding: var(--space-8) var(--space-5) var(--space-16); }
+
+  /* Progress indicator */
+  .bk-progress { display: flex; align-items: center; margin-bottom: var(--space-8); }
+  .bk-progress__step { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); flex: 1; position: relative; }
+  .bk-progress__dot {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--color-surface-alt); color: var(--color-text-muted);
+    display: flex; align-items: center; justify-content: center; font-weight: var(--fw-bold); font-size: var(--fs-sm);
+    border: 2px solid var(--color-border); transition: all var(--duration-base);
+  }
+  .bk-progress__label { font-size: 11px; color: var(--color-text-muted); text-align: center; display: none; }
+  .bk-progress__step.active .bk-progress__dot { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+  .bk-progress__step.active .bk-progress__label { color: var(--color-text); font-weight: var(--fw-semibold); }
+  .bk-progress__step.done .bk-progress__dot { background: var(--color-success); border-color: var(--color-success); color: #fff; }
+  .bk-progress__line { flex: 1; height: 2px; background: var(--color-border); margin-top: 17px; }
+  .bk-progress__step.done + .bk-progress__line, .bk-progress__line.done { background: var(--color-success); }
+  @media (min-width: 640px) { .bk-progress__label { display: block; } }
+
+  .bk-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-6); box-shadow: var(--shadow-sm); }
+  .bk-card h2 { font-size: var(--fs-xl); margin-bottom: var(--space-1); }
+  .bk-card__subtitle { color: var(--color-text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-6); }
+
+  .bk-option-list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .bk-option {
+    display: flex; align-items: center; gap: var(--space-4); width: 100%; text-align: start;
+    padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); border: 2px solid var(--color-border);
+    background: var(--color-surface); cursor: pointer; font-family: inherit; min-height: 64px;
+    transition: border-color var(--duration-fast), background var(--duration-fast);
+  }
+  .bk-option:hover { border-color: var(--color-primary); }
+  .bk-option.selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .bk-option__icon { width: 44px; height: 44px; border-radius: var(--radius-md); background: var(--color-primary-light); color: var(--color-primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: var(--fw-bold); }
+  .bk-option__icon svg { width: 22px; height: 22px; }
+  .bk-option.selected .bk-option__icon { background: var(--color-primary); color: #fff; }
+  .bk-option__body { flex: 1; min-width: 0; }
+  .bk-option__title { font-weight: var(--fw-semibold); font-size: var(--fs-base); }
+  .bk-option__meta { font-size: var(--fs-sm); color: var(--color-text-muted); }
+  .bk-option__price { font-weight: var(--fw-bold); font-size: var(--fs-lg); flex-shrink: 0; }
+  .bk-option__check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--color-border); flex-shrink: 0; display:flex; align-items:center; justify-content:center; }
+  .bk-option.selected .bk-option__check { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+  .bk-option.selected .bk-option__check svg { width: 14px; height: 14px; }
+
+  .bk-time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
+  .bk-time-slot {
+    padding: var(--space-4); border-radius: var(--radius-md); border: 2px solid var(--color-border); background: var(--color-surface);
+    text-align: center; font-weight: var(--fw-semibold); cursor: pointer; min-height: 56px;
+    transition: border-color var(--duration-fast), background var(--duration-fast);
+  }
+  .bk-time-slot:hover:not(:disabled) { border-color: var(--color-primary); }
+  .bk-time-slot.selected { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+  .bk-time-slot:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+  @media (max-width: 480px) { .bk-time-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .bk-date-input { width: 100%; padding: var(--space-4) var(--space-5); font-size: var(--fs-lg); border-radius: var(--radius-lg); border: 2px solid var(--color-border); font-family: inherit; }
+  .bk-date-input:focus { outline: none; border-color: var(--color-primary); }
+
+  .bk-summary-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
+  .bk-summary-row:last-child { border-bottom: none; }
+  .bk-summary-row__label { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--fs-sm); }
+  .bk-summary-row__label svg { width: 16px; height: 16px; }
+  .bk-summary-row__value { font-weight: var(--fw-semibold); text-align: end; }
+
+  .bk-footer-nav { display: flex; gap: var(--space-3); margin-top: var(--space-6); }
+  .bk-footer-nav .btn { flex: 1; min-height: 52px; font-size: var(--fs-base); }
+  .bk-footer-nav .btn-secondary { flex: 0 0 auto; min-width: 110px; }
+
+  /* Success screen */
+  .bk-success { text-align: center; padding: var(--space-8) var(--space-4); }
+  .bk-success__icon {
+    width: 88px; height: 88px; border-radius: 50%; background: var(--color-success-light); color: var(--color-success);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-5);
+  }
+  .bk-success__icon svg { width: 44px; height: 44px; }
+  .bk-success h2 { font-size: var(--fs-2xl); margin-bottom: var(--space-2); }
+  .bk-success > p { color: var(--color-text-muted); margin-bottom: var(--space-6); }
+  .bk-success__number { display: inline-block; background: var(--color-primary-light); color: var(--color-primary); font-weight: var(--fw-bold); padding: var(--space-2) var(--space-5); border-radius: var(--radius-full); margin-bottom: var(--space-6); letter-spacing: 0.03em; }
+  .bk-success__card { text-align: start; background: var(--color-surface-alt); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-6); }
+  .bk-success__actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-4); }
+  .bk-success__actions .btn { flex-direction: column; height: auto; padding: var(--space-4) var(--space-2); gap: var(--space-2); font-size: var(--fs-xs); }
+  .bk-success__actions .btn svg { width: 20px; height: 20px; }
+  @media (max-width: 560px) { .bk-success__actions { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="booking-shell">
+  <h1 style="text-align:center; margin-bottom: var(--space-6);" data-i18n="pub_booking.title"></h1>
+
+  <div class="bk-progress" id="bkProgress"></div>
+
+  <div id="bkStepArea"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/components.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  I18N.applyToDOM();
+
+  // A branch-picker step is inserted before 'service' only when the doctor
+  // has more than one active branch and the link didn't already name one.
+  let STEPS = ['service', 'datetime', 'confirm'];
+  const STEP_LABELS = { branch: 'الفرع', service: 'الخدمة', datetime: 'الموعد', confirm: 'التأكيد' };
+
+  const ALL_TIMES = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30'];
+  const today = new Date().toISOString().split('T')[0];
+
+  let stepIndex = 0;
+  let treatments = [];
+  let branchChoices = [];
+  let bookingComplete = false;
+  let invalidLink = false;
+
+  const params = new URLSearchParams(location.search);
+  const targetClinicId = params.get('clinic');
+  const targetBranchId = params.get('branch');
+
+  const state = {
+    branchId: targetBranchId || null,
+    serviceId: null,
+    date: today,
+    time: null,
+    name: '', phone: '', email: '', notes: '',
+  };
+
+  let bookingClinic = null;
+  let bookingBranch = null;
+
+  function showInvalidLink() {
+    invalidLink = true;
+    document.getElementById('bkProgress').innerHTML = '';
+    document.getElementById('bkStepArea').innerHTML = `
+      <div class="bk-card" style="text-align:center;">
+        <h2 style="margin-bottom:4px;">هذا الرابط غير صالح</h2>
+        <p class="bk-card__subtitle">تأكد من الرابط الذي حصلت عليه من عيادتك، أو تواصل معهم مباشرة.</p>
+      </div>`;
+  }
+
+  function initials(name) { return (name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(); }
+
+  /* ---- Progress bar ---- */
+  function renderProgress() {
+    if (bookingComplete) { document.getElementById('bkProgress').innerHTML = ''; return; }
+    document.getElementById('bkProgress').innerHTML = STEPS.map((key, i) => {
+      const cls = i === stepIndex ? 'active' : i < stepIndex ? 'done' : '';
+      const dot = i < stepIndex ? icon('check') : (i + 1);
+      const line = i < STEPS.length - 1 ? `<div class="bk-progress__line ${i < stepIndex ? 'done' : ''}"></div>` : '';
+      return `<div class="bk-progress__step ${cls}"><div class="bk-progress__dot">${dot}</div><div class="bk-progress__label">${STEP_LABELS[key]}</div></div>${line}`;
+    }).join('');
+  }
+
+  function footer({ nextLabel, nextDisabled, showBack = true }) {
+    return `<div class="bk-footer-nav">
+      ${stepIndex > 0 && showBack ? `<button class="btn btn-secondary" id="bkBackBtn">${I18N.t('common.back')}</button>` : ''}
+      <button class="btn btn-primary" id="bkNextBtn" ${nextDisabled ? 'disabled' : ''}>${nextLabel}</button>
+    </div>`;
+  }
+
+  function wireFooter(onNext) {
+    document.getElementById('bkBackBtn')?.addEventListener('click', () => { stepIndex--; renderStep(); });
+    document.getElementById('bkNextBtn')?.addEventListener('click', onNext);
+  }
+
+  /* ---- Step 0 (optional): Branch ---- */
+  function renderBranchStep() {
+    const area = document.getElementById('bkStepArea');
+    area.innerHTML = `
+      <div class="bk-card">
+        <h2 style="margin-bottom:4px;">اختر الفرع</h2>
+        <p class="bk-card__subtitle">اختر الفرع الأقرب إليك</p>
+        <div class="bk-option-list" id="bkBranchList"></div>
+        ${footer({ nextLabel: 'التالي', nextDisabled: !state.branchId, showBack: false })}
+      </div>`;
+
+    document.getElementById('bkBranchList').innerHTML = branchChoices.map(b => `
+      <button class="bk-option ${state.branchId === b.id ? 'selected' : ''}" data-id="${b.id}">
+        <span class="bk-option__icon">${icon('mapPin')}</span>
+        <span class="bk-option__body">
+          <span class="bk-option__title">${b.name}</span>
+          <span class="bk-option__meta">${b.address || ''}</span>
+        </span>
+        <span class="bk-option__check">${icon('check')}</span>
+      </button>`).join('');
+
+    document.querySelectorAll('#bkBranchList .bk-option').forEach(btn => btn.addEventListener('click', () => {
+      state.branchId = btn.dataset.id;
+      renderBranchStep();
+    }));
+    wireFooter(() => {
+      bookingBranch = branchChoices.find(b => b.id === state.branchId);
+      stepIndex++; renderStep();
+    });
+  }
+
+  /* ---- Step 1: Service ---- */
+  function renderServiceStep() {
+    const area = document.getElementById('bkStepArea');
+    const doctorName = bookingClinic?.doctorName || '';
+    area.innerHTML = `
+      <div class="bk-card">
+        <h2 style="margin-bottom:4px;">احجز موعدك${doctorName ? ` مع ${doctorName}` : ''}</h2>
+        <p class="bk-card__subtitle">اختر الخدمة التي تريدها</p>
+        <div class="bk-option-list" id="bkServiceList"></div>
+        ${footer({ nextLabel: 'التالي', nextDisabled: !state.serviceId, showBack: false })}
+      </div>`;
+
+    document.getElementById('bkServiceList').innerHTML = treatments.map(t => `
+      <button class="bk-option ${state.serviceId === t.id ? 'selected' : ''}" data-id="${t.id}">
+        <span class="bk-option__icon">${icon('treatments')}</span>
+        <span class="bk-option__body">
+          <span class="bk-option__title">${t.name}</span>
+          <span class="bk-option__meta">${t.duration} دقيقة</span>
+        </span>
+        <span class="bk-option__check">${icon('check')}</span>
+      </button>`).join('');
+
+    document.querySelectorAll('#bkServiceList .bk-option').forEach(btn => btn.addEventListener('click', () => {
+      state.serviceId = btn.dataset.id;
+      renderServiceStep();
+    }));
+    wireFooter(() => { stepIndex++; renderStep(); });
+  }
+
+  /* ---- Step 2: Date + Time ---- */
+  function renderDatetimeStep() {
+    const area = document.getElementById('bkStepArea');
+    area.innerHTML = `
+      <div class="bk-card">
+        <h2 style="margin-bottom:4px;">اختر التاريخ والوقت</h2>
+        <p class="bk-card__subtitle">اختر اليوم المناسب ثم الوقت</p>
+        <div class="form-group" style="margin-bottom:var(--space-5);">
+          <label class="form-label">التاريخ</label>
+          <input type="date" class="bk-date-input" id="bkDateInput" value="${state.date}" min="${today}">
+        </div>
+        <label class="form-label" style="margin-bottom:var(--space-3);display:block;">الوقت</label>
+        <div class="bk-time-grid" id="bkTimeGrid"></div>
+        ${footer({ nextLabel: 'التالي', nextDisabled: !(state.date && state.time) })}
+      </div>`;
+
+    renderTimeSlots();
+
+    document.getElementById('bkDateInput').addEventListener('change', e => {
+      state.date = e.target.value; state.time = null; renderTimeSlots();
+      document.getElementById('bkNextBtn').disabled = true;
+    });
+    wireFooter(() => { stepIndex++; renderStep(); });
+  }
+
+  function renderTimeSlots() {
+    document.getElementById('bkTimeGrid').innerHTML = ALL_TIMES.map(t => `
+      <button class="bk-time-slot ${state.time === t ? 'selected' : ''}" data-time="${t}">${t}</button>`).join('');
+    document.querySelectorAll('#bkTimeGrid .bk-time-slot').forEach(btn => btn.addEventListener('click', () => {
+      state.time = btn.dataset.time;
+      document.getElementById('bkNextBtn').disabled = false;
+      document.querySelectorAll('.bk-time-slot').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    }));
+  }
+
+  /* ---- Step 3: Info + Confirm ---- */
+  function renderConfirmStep() {
+    const area = document.getElementById('bkStepArea');
+    const service = treatments.find(t => t.id === state.serviceId);
+    const doctorName = bookingClinic?.doctorName || '';
+
+    area.innerHTML = `
+      <div class="bk-card">
+        <h2 style="margin-bottom:4px;">بياناتك وتأكيد الحجز</h2>
+        <p class="bk-card__subtitle">أدخل بياناتك وراجع تفاصيل حجزك</p>
+
+        <!-- Booking Summary -->
+        <div style="background:var(--color-surface-alt); border-radius:var(--radius-lg); padding:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="bk-summary-row">${icon('user')}<span style="font-size:var(--fs-sm); color:var(--color-text-muted); flex:1;">الطبيب</span><strong>${doctorName}</strong></div>
+          <div class="bk-summary-row">${icon('treatments')}<span style="font-size:var(--fs-sm); color:var(--color-text-muted); flex:1;">الخدمة</span><strong>${service ? service.name : ''}</strong></div>
+          <div class="bk-summary-row">${icon('calendar')}<span style="font-size:var(--fs-sm); color:var(--color-text-muted); flex:1;">التاريخ</span><strong>${state.date}</strong></div>
+          <div class="bk-summary-row">${icon('clock')}<span style="font-size:var(--fs-sm); color:var(--color-text-muted); flex:1;">الوقت</span><strong>${state.time}</strong></div>
+        </div>
+
+        <!-- Patient Info -->
+        <div class="form-group">
+          <label class="form-label">الاسم الكامل *</label>
+          <input type="text" class="form-control" id="bkName" placeholder="أدخل اسمك" value="${state.name}" style="min-height:52px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رقم الهاتف *</label>
+          <input type="tel" class="form-control" id="bkPhone" placeholder="05xxxxxxxx" value="${state.phone}" style="min-height:52px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">البريد الإلكتروني (اختياري)</label>
+          <input type="email" class="form-control" id="bkEmail" placeholder="example@email.com" value="${state.email}" style="min-height:52px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <textarea class="form-control" id="bkNotes" placeholder="أي معلومات إضافية تريد إبلاغ الطبيب بها">${state.notes}</textarea>
+        </div>
+
+        ${footer({ nextLabel: 'تأكيد الحجز', nextDisabled: !(state.name && state.phone) })}
+      </div>`;
+
+    function syncValid() {
+      document.getElementById('bkNextBtn').disabled = !(state.name.trim() && state.phone.trim());
+    }
+    document.getElementById('bkName').addEventListener('input', e => { state.name = e.target.value; syncValid(); });
+    document.getElementById('bkPhone').addEventListener('input', e => { state.phone = e.target.value; syncValid(); });
+    document.getElementById('bkEmail').addEventListener('input', e => { state.email = e.target.value; });
+    document.getElementById('bkNotes').addEventListener('input', e => { state.notes = e.target.value; });
+    wireFooter(() => completeBooking());
+  }
+
+  /* ---- Complete Booking ---- */
+  function digitsOnly(phone) { return (phone || '').replace(/\D/g, ''); }
+
+  let bookingResult = null;
+  async function completeBooking() {
+    const service = treatments.find(t => t.id === state.serviceId);
+    const apptId = 'A-' + Math.floor(3000 + Math.random() * 6000);
+    const clinicId = bookingClinic.id;
+    const branchId = bookingBranch.id;
+
+    const btn = document.getElementById('bkNextBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري الحجز...'; }
+
+    try {
+      await db.collection('appointments').doc(apptId).set({
+        clinicId,
+        branchId,
+        patientName: state.name,
+        phone: state.phone,
+        email: state.email,
+        treatment: service ? service.name : '',
+        date: state.date,
+        time: state.time,
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (err) {
+      console.warn('Firestore save failed:', err);
+    }
+
+    bookingResult = { apptId, service, patientName: state.name };
+    bookingComplete = true;
+    renderProgress();
+    renderSuccessStep();
+  }
+
+  /* ---- Success ---- */
+  function renderSuccessStep() {
+    const area = document.getElementById('bkStepArea');
+    const { apptId, service, patientName } = bookingResult;
+    const doctorName = bookingClinic?.doctorName || '';
+    const clinicNumber = bookingBranch?.whatsappNumber || bookingBranch?.phone || '';
+    const waText = `مرحباً، أرغب في تأكيد حجز موعدي:\nالاسم: ${patientName}\nالخدمة: ${service?.name || ''}\nالطبيب: ${doctorName}\nالتاريخ: ${state.date}\nالوقت: ${state.time}\nرقم الحجز: ${apptId}\nشكراً.`;
+    const waUrl = `https://wa.me/${digitsOnly(clinicNumber)}?text=${encodeURIComponent(waText)}`;
+
+    area.innerHTML = `
+      <div class="bk-card bk-success">
+        <div class="bk-success__icon">${icon('checkCircle')}</div>
+        <h2>تم الحجز بنجاح! 🎉</h2>
+        <p style="color:var(--color-text-muted); margin-bottom:var(--space-4);">سيتواصل معك الطبيب قريباً للتأكيد</p>
+        <div class="bk-success__number">رقم الحجز: ${apptId}</div>
+        <div class="bk-success__card">
+          <div class="bk-summary-row">${icon('user')}<span style="flex:1; color:var(--color-text-muted); font-size:var(--fs-sm);">الطبيب</span><strong>${doctorName}</strong></div>
+          <div class="bk-summary-row">${icon('treatments')}<span style="flex:1; color:var(--color-text-muted); font-size:var(--fs-sm);">الخدمة</span><strong>${service?.name || ''}</strong></div>
+          <div class="bk-summary-row">${icon('calendar')}<span style="flex:1; color:var(--color-text-muted); font-size:var(--fs-sm);">التاريخ</span><strong>${state.date}</strong></div>
+          <div class="bk-summary-row">${icon('clock')}<span style="flex:1; color:var(--color-text-muted); font-size:var(--fs-sm);">الوقت</span><strong>${state.time}</strong></div>
+          <div class="bk-summary-row">${icon('idCard')}<span style="flex:1; color:var(--color-text-muted); font-size:var(--fs-sm);">الاسم</span><strong>${patientName}</strong></div>
+        </div>
+        ${clinicNumber ? `<a href="${waUrl}" target="_blank" rel="noopener" class="btn w-full" style="background:#25D366; color:#fff;">
+          ${icon('whatsapp')} إرسال تأكيد عبر واتساب
+        </a>` : ''}
+      </div>`;
+  }
+
+  /* ---- Render current step ---- */
+  function renderStep() {
+    renderProgress();
+    const renderers = { branch: renderBranchStep, service: renderServiceStep, datetime: renderDatetimeStep, confirm: renderConfirmStep };
+    renderers[STEPS[stepIndex]]();
+  }
+
+  /* ---- Init ---- */
+  async function initBooking() {
+    if (!targetClinicId) { showInvalidLink(); return; }
+
+    try {
+      const doc = await db.collection('clinics').doc(targetClinicId).get();
+      if (!doc.exists) throw new Error('Clinic not found');
+      bookingClinic = { id: doc.id, ...doc.data() };
+
+      const titleEl = document.querySelector('h1');
+      if (titleEl) titleEl.textContent = `احجز موعدك مع ${bookingClinic.clinicName || bookingClinic.doctorName}`;
+
+      // Resolve which branch this booking targets. A link naming one directly
+      // (?branch=) skips the picker outright; otherwise fall back to the
+      // clinic's active branches — exactly one auto-selects silently, more
+      // than one inserts a branch-picker as the wizard's first step.
+      if (targetBranchId) {
+        const branchDoc = await db.collection('branches').doc(targetBranchId).get();
+        if (!branchDoc.exists || branchDoc.data().clinicId !== targetClinicId) throw new Error('Branch not found');
+        bookingBranch = { id: branchDoc.id, ...branchDoc.data() };
+      } else {
+        const branchesSnap = await db.collection('branches').where('clinicId', '==', targetClinicId).where('status', '==', 'active').get();
+        branchChoices = branchesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (branchChoices.length === 0) throw new Error('No active branches');
+        if (branchChoices.length === 1) {
+          bookingBranch = branchChoices[0];
+          state.branchId = bookingBranch.id;
+        } else {
+          STEPS = ['branch', 'service', 'datetime', 'confirm'];
+        }
+      }
+
+      const t = await MOCK_API.getTreatments(targetClinicId);
+      treatments = t.filter(x => x.status === 'active');
+
+      renderStep();
+    } catch (err) {
+      console.error(err);
+      showInvalidLink();
+    }
+  }
+
+  initBooking();
+  document.addEventListener('i18n:changed', () => { if (!bookingComplete && !invalidLink) renderStep(); });
+</script>
+</body>
+</html>

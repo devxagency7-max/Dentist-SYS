@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="payments.title">Payments</h1>
+      <p class="page-header__desc" data-i18n="payments.desc">Track invoices and clinic revenue</p>
+    </div>
+    <div class="page-header__actions">
+      <button class="btn btn-secondary"><span class="icon-download"></span><span data-i18n="common.export">Export</span></button>
+      <button class="btn btn-primary" data-modal-open="newInvoiceModal"><span class="icon-plus"></span><span data-i18n="payments.new_invoice">New Invoice</span></button>
+    </div>
+  </div>
+
+  <div class="grid-stats" id="statsGrid" style="margin-bottom: var(--space-5);"></div>
+
+  <div class="card mb-4" style="margin-bottom: var(--space-5);">
+    <div class="card-header"><div class="card-title">Monthly Revenue</div></div>
+    <canvas id="monthlyRevenueCanvas" style="width:100%; height:220px;"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div class="search-bar" style="max-width:320px;">
+        <span class="icon-search"></span>
+        <input type="text" id="searchInput" data-i18n-placeholder="common.search" placeholder="Search">
+      </div>
+      <div class="dropdown">
+        <button class="dropdown-toggle" data-dropdown-toggle><span class="icon-filter"></span><span id="statusFilterLabel" data-i18n="common.status">Status</span><span class="icon-chevron"></span></button>
+        <div class="dropdown-menu" id="statusFilterMenu"></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th data-i18n="common.patient">Patient</th>
+            <th data-i18n="common.treatment">Treatment</th>
+            <th data-i18n="payments.invoice">Invoice</th>
+            <th data-i18n="common.amount">Amount</th>
+            <th>Paid</th>
+            <th>Remaining</th>
+            <th data-i18n="common.status">Status</th>
+            <th data-i18n="common.date">Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<div class="modal-backdrop" id="newInvoiceModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="payments.new_invoice">New Invoice</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" data-i18n="common.patient">Patient</label><select class="form-control"><option>Sarah Johnson</option><option>Ahmed Al-Farsi</option></select></div>
+      <div class="form-group"><label class="form-label" data-i18n="common.treatment">Treatment</label><select class="form-control"><option>Routine Checkup</option><option>Root Canal</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="common.amount">Amount</label><input type="number" class="form-control" placeholder="$0"></div>
+        <div class="form-group"><label class="form-label" data-i18n="common.date">Date</label><input type="date" class="form-control" value="2026-09-02"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="saveInvoiceBtn" data-i18n="common.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/charts.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'payments' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+  document.querySelector('.icon-search').innerHTML = ICONS.search;
+  document.querySelector('.icon-filter').innerHTML = ICONS.filter;
+  document.querySelector('.icon-chevron').innerHTML = ICONS.chevronDown;
+  document.querySelector('.icon-download').innerHTML = ICONS.download;
+
+  let allPayments = [];
+  let statusFilter = 'all';
+  let searchTerm = '';
+
+  function buildStatusMenu() {
+    document.getElementById('statusFilterMenu').innerHTML = ['all', 'paid', 'partial', 'pending', 'overdue'].map(s => `
+      <button class="dropdown-item" data-status="${s}">${s === 'all' ? I18N.t('common.all') : I18N.t('status.' + s)}</button>
+    `).join('');
+  }
+
+  function statusBadge(status) {
+    const map = { paid: 'success', pending: 'warning', overdue: 'danger', partial: 'warning' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  const TODAY = '2026-09-02';
+
+  async function renderStats() {
+    const payments = await MOCK_API.getPayments(clinicId);
+    const todayRevenue = payments.filter(p => p.date === TODAY).reduce((s, p) => s + p.paid, 0);
+    const monthRevenue = payments.reduce((s, p) => s + p.paid, 0);
+    const pending = payments.filter(p => p.status !== 'paid').reduce((s, p) => s + (p.amount - p.paid), 0);
+    const paidInvoices = payments.filter(p => p.status === 'paid').length;
+
+    const stats = [
+      { label: "Today's Revenue", value: '$' + todayRevenue, desc: 'Collected today', icon: 'dollar', color: 'green' },
+      { label: 'Monthly Revenue', value: '$' + monthRevenue, desc: 'Collected this month', icon: 'reports', color: 'blue' },
+      { label: 'Pending Payments', value: '$' + pending, desc: 'Awaiting collection', icon: 'clock', color: 'amber' },
+      { label: 'Paid Invoices', value: paidInvoices, desc: `of ${payments.length} total`, icon: 'checkCircle', color: 'cyan' },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card">
+        <div class="stat-card__info">
+          <div class="stat-card__label">${s.label}</div>
+          <div class="stat-card__value">${s.value}</div>
+          <div class="text-xs text-muted">${s.desc}</div>
+        </div>
+        <div class="stat-card__icon ${s.color}">${icon(s.icon)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function renderChart() {
+    const data = await MOCK_API.getMonthlyRevenueChart();
+    Charts.barChart('monthlyRevenueCanvas', data);
+  }
+
+  function render() {
+    const filtered = allPayments.filter(p => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+      if (searchTerm && !p.patientName.toLowerCase().includes(searchTerm.toLowerCase()) && !p.id.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
+    });
+
+    document.getElementById('tableBody').innerHTML = filtered.map(p => `
+      <tr>
+        <td data-label="${I18N.t('common.patient')}"><span class="fw-medium">${p.patientName}</span></td>
+        <td data-label="${I18N.t('common.treatment')}" class="cell-muted">${p.treatment}</td>
+        <td data-label="${I18N.t('payments.invoice')}" class="cell-muted">${p.id}</td>
+        <td data-label="${I18N.t('common.amount')}" class="fw-semibold">$${p.amount}</td>
+        <td data-label="Paid" class="cell-muted">$${p.paid}</td>
+        <td data-label="Remaining" class="fw-semibold" style="color:${(p.amount - p.paid) > 0 ? 'var(--color-danger)' : 'inherit'};">$${p.amount - p.paid}</td>
+        <td data-label="${I18N.t('common.status')}">${statusBadge(p.status)}</td>
+        <td data-label="${I18N.t('common.date')}" class="cell-muted">${p.date}</td>
+        <td class="cell-actions">
+          <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.view')}">${icon('eye')}</button>
+          <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.print')}">${icon('printer')}</button>
+        </td>
+      </tr>
+    `).join('') || `<tr><td colspan="9"><div class="empty-state"><div class="empty-state__icon">${icon('payments')}</div><div class="empty-state__title">${I18N.t('common.no_results')}</div></div></td></tr>`;
+  }
+
+  document.getElementById('statusFilterMenu').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-status]');
+    if (!btn) return;
+    statusFilter = btn.getAttribute('data-status');
+    document.getElementById('statusFilterLabel').textContent = statusFilter === 'all' ? I18N.t('common.status') : I18N.t('status.' + statusFilter);
+    render();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    render();
+  });
+
+  document.getElementById('saveInvoiceBtn').addEventListener('click', () => {
+    Modal.close('newInvoiceModal');
+    Toast.success(I18N.t('toast.saved_title'), I18N.t('toast.saved_desc'));
+  });
+
+  MOCK_API.getPayments(clinicId).then(data => { allPayments = data; buildStatusMenu(); render(); });
+  renderStats();
+  renderChart();
+  document.addEventListener('i18n:changed', () => { buildStatusMenu(); render(); renderStats(); });
+  document.addEventListener('theme:changed', renderChart);
+  window.addEventListener('resize', renderChart);
+</script>
+</body>
+</html>

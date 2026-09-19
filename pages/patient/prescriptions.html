@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prescriptions — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  .rx-card { display: flex; align-items: flex-start; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+  .rx-card__icon { width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--color-primary-light); color: var(--color-primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rx-card__icon svg { width: 24px; height: 24px; }
+  .rx-card__body { flex: 1; min-width: 0; }
+  .rx-card__name { font-weight: var(--fw-semibold); font-size: var(--fs-lg); }
+  .rx-card__meta { font-size: var(--fs-sm); color: var(--color-text-muted); margin-top: 2px; }
+  .rx-card__instructions { font-size: var(--fs-sm); margin-top: var(--space-2); background: var(--color-surface-alt); border-radius: var(--radius-sm); padding: var(--space-3); }
+  .rx-card__actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="patient_portal.prescriptions_title">Prescriptions</h1>
+      <p class="page-header__desc" data-i18n="patient_portal.prescriptions_desc">Medications prescribed to you by our doctors.</p>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-4" id="rxList"></div>
+  <div id="emptyState" class="hidden"></div>
+</template>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'prescriptions', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+
+  async function render() {
+    const patient = await MOCK_API.getPatient(PATIENT_ID);
+    const rx = patient.prescriptions || [];
+    const list = document.getElementById('rxList');
+    const empty = document.getElementById('emptyState');
+
+    if (rx.length === 0) {
+      list.classList.add('hidden');
+      empty.classList.remove('hidden');
+      empty.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__icon">${icon('pill')}</div>
+          <div class="empty-state__title" data-i18n="patient_portal.no_prescriptions"></div>
+          <div class="empty-state__desc" data-i18n="patient_portal.no_prescriptions_desc"></div>
+        </div>`;
+      I18N.applyToDOM(empty);
+      return;
+    }
+
+    list.classList.remove('hidden');
+    empty.classList.add('hidden');
+    list.innerHTML = rx.map((p, i) => `
+      <div class="rx-card">
+        <span class="rx-card__icon">${icon('pill')}</span>
+        <div class="rx-card__body">
+          <div class="rx-card__name">${p.name}</div>
+          <div class="rx-card__meta">${p.doctor} · ${p.date}</div>
+          <div class="rx-card__instructions">${p.notes}</div>
+          <div class="rx-card__actions">
+            <button class="btn btn-secondary btn-sm rx-print-btn" data-idx="${i}">${icon('printer')}<span data-i18n="patient_portal.print"></span></button>
+            <button class="btn btn-secondary btn-sm rx-download-btn" data-idx="${i}">${icon('download')}<span data-i18n="patient_portal.download_pdf"></span></button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    I18N.applyToDOM(list);
+
+    list.querySelectorAll('.rx-print-btn').forEach(btn => btn.addEventListener('click', () => {
+      Toast.info('Print', 'Opening print preview for this prescription...');
+    }));
+    list.querySelectorAll('.rx-download-btn').forEach(btn => btn.addEventListener('click', () => {
+      Toast.success('Download started', 'Your prescription PDF is being prepared.');
+    }));
+  }
+
+  render();
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

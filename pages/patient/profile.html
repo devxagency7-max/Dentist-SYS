@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  .privacy-banner {
+    display: flex; align-items: flex-start; gap: var(--space-3);
+    background: var(--color-info-light); border: 1px solid var(--color-primary); border-radius: var(--radius-md);
+    padding: var(--space-4); margin-bottom: var(--space-6);
+  }
+  .privacy-banner .icon-wrap { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .privacy-banner .icon-wrap svg { width: 18px; height: 18px; }
+  .privacy-banner h4 { font-size: var(--fs-base); margin-bottom: 2px; }
+  .privacy-banner p { font-size: var(--fs-sm); color: var(--color-text-muted); line-height: var(--lh-relaxed); }
+  .profile-header { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6); }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="patient_portal.profile_title">Profile</h1>
+      <p class="page-header__desc" data-i18n="patient_portal.profile_desc">Manage your personal and contact information.</p>
+    </div>
+  </div>
+
+  <div class="privacy-banner">
+    <span class="icon-wrap">${'{{LOCK_ICON}}'}</span>
+    <div>
+      <h4 data-i18n="patient_portal.privacy_title">Your privacy matters</h4>
+      <p data-i18n="patient_portal.privacy_desc"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="profile-header">
+      <div class="avatar avatar-lg" id="profileAvatar" style="width:64px; height:64px; font-size: var(--fs-xl);"></div>
+      <div>
+        <h3 id="profileName" style="margin-bottom:2px;"></h3>
+        <span class="text-sm text-muted" id="profileId"></span>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" data-i18n="common.name">Name</label><input type="text" class="form-control" id="fldName"></div>
+      <div class="form-group"><label class="form-label" data-i18n="common.phone">Phone</label><input type="tel" class="form-control" id="fldPhone"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" data-i18n="common.email">Email</label><input type="email" class="form-control" id="fldEmail"></div>
+      <div class="form-group"><label class="form-label">Date of Birth</label><input type="date" class="form-control" id="fldDob"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-control" id="fldAddress"></div>
+
+    <div class="divider" style="margin: var(--space-5) 0;"></div>
+    <h4 style="margin-bottom: var(--space-4);" data-i18n="patient_portal.emergency_contact">Emergency Contact</h4>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" data-i18n="patient_portal.emergency_contact_name">Contact Name</label><input type="text" class="form-control" id="fldEcName" placeholder="Full name"></div>
+      <div class="form-group"><label class="form-label" data-i18n="patient_portal.emergency_contact_phone">Contact Phone</label><input type="tel" class="form-control" id="fldEcPhone" placeholder="+1 555-0100"></div>
+    </div>
+
+    <button class="btn btn-primary" id="saveProfileBtn" data-i18n="patient_portal.save_changes">Save Changes</button>
+  </div>
+</template>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'profile', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML.replace("${'{{LOCK_ICON}}'}", ICONS.lock);
+  I18N.applyToDOM(content);
+
+  function initials(name) { return name.split(' ').map(n => n[0]).join('').slice(0, 2); }
+
+  async function render() {
+    const patient = await MOCK_API.getPatient(PATIENT_ID);
+    document.getElementById('profileAvatar').textContent = initials(patient.name);
+    document.getElementById('profileAvatar').style.background = `#${patient.avatarColor}22`;
+    document.getElementById('profileAvatar').style.color = `#${patient.avatarColor}`;
+    document.getElementById('profileName').textContent = patient.name;
+    document.getElementById('profileId').textContent = patient.id;
+
+    document.getElementById('fldName').value = patient.name;
+    document.getElementById('fldPhone').value = patient.phone;
+    document.getElementById('fldEmail').value = patient.email;
+    document.getElementById('fldDob').value = patient.dob || '';
+    document.getElementById('fldAddress').value = patient.address || '';
+    document.getElementById('fldEcName').value = patient.emergencyContact?.name || '';
+    document.getElementById('fldEcPhone').value = patient.emergencyContact?.phone || '';
+  }
+
+  document.getElementById('saveProfileBtn').addEventListener('click', () => {
+    const patient = MOCK_DATA.patients.find(p => p.id === PATIENT_ID);
+    if (!patient) return;
+    patient.name = document.getElementById('fldName').value;
+    patient.phone = document.getElementById('fldPhone').value;
+    patient.email = document.getElementById('fldEmail').value;
+    patient.dob = document.getElementById('fldDob').value;
+    patient.address = document.getElementById('fldAddress').value;
+    patient.emergencyContact = {
+      name: document.getElementById('fldEcName').value,
+      phone: document.getElementById('fldEcPhone').value,
+    };
+    render();
+    Toast.success(I18N.t('toast.saved_title'), 'Your profile has been updated.');
+  });
+
+  render();
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

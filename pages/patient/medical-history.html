@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical History — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  .privacy-banner {
+    display: flex; align-items: flex-start; gap: var(--space-3);
+    background: var(--color-info-light); border: 1px solid var(--color-primary); border-radius: var(--radius-md);
+    padding: var(--space-4); margin-bottom: var(--space-6);
+  }
+  .privacy-banner .icon-wrap { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .privacy-banner .icon-wrap svg { width: 18px; height: 18px; }
+  .privacy-banner h4 { font-size: var(--fs-base); margin-bottom: 2px; }
+  .privacy-banner p { font-size: var(--fs-sm); color: var(--color-text-muted); line-height: var(--lh-relaxed); }
+
+  .note-item { padding: var(--space-4) 0; border-bottom: 1px solid var(--color-border); }
+  .note-item:last-child { border-bottom: none; }
+  .note-item__meta { font-size: var(--fs-xs); color: var(--color-text-muted); margin-bottom: 4px; }
+  .note-item__text { font-size: var(--fs-sm); line-height: var(--lh-relaxed); }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="patient_portal.medical_history_title">Medical History</h1>
+      <p class="page-header__desc" data-i18n="patient_portal.medical_history_desc">A record of your visits, treatments, and clinical notes.</p>
+    </div>
+  </div>
+
+  <div class="privacy-banner">
+    <span class="icon-wrap">${'{{LOCK_ICON}}'}</span>
+    <div>
+      <h4 data-i18n="patient_portal.privacy_title">Your privacy matters</h4>
+      <p data-i18n="patient_portal.privacy_desc"></p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="flex flex-col gap-6">
+      <div class="card">
+        <div class="card-header"><div class="card-title" data-i18n="patient_portal.previous_visits">Previous Visits</div></div>
+        <div class="table-wrap">
+          <table class="data-table to-cards">
+            <thead><tr><th data-i18n="common.date">Date</th><th data-i18n="common.treatment">Treatment</th><th data-i18n="common.doctor">Doctor</th><th data-i18n="common.status">Status</th></tr></thead>
+            <tbody id="visitsRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Allergies</div></div>
+        <div id="allergiesArea"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title" data-i18n="patient_portal.clinical_notes">Clinical Notes</div></div>
+        <div id="notesArea"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'medical_history', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML.replace("${'{{LOCK_ICON}}'}", ICONS.lock);
+  I18N.applyToDOM(content);
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  async function render() {
+    const [patient, appointments] = await Promise.all([MOCK_API.getPatient(PATIENT_ID), MOCK_API.getAppointments()]);
+    const visits = appointments.filter(a => a.patientId === PATIENT_ID).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+    document.getElementById('visitsRows').innerHTML = visits.map(v => `
+      <tr>
+        <td data-label="${I18N.t('common.date')}" class="cell-muted">${v.date}</td>
+        <td data-label="${I18N.t('common.treatment')}" class="fw-medium">${v.treatment}</td>
+        <td data-label="${I18N.t('common.doctor')}" class="cell-muted">${v.doctor}</td>
+        <td data-label="${I18N.t('common.status')}">${statusBadge(v.status)}</td>
+      </tr>
+    `).join('');
+
+    const allergiesArea = document.getElementById('allergiesArea');
+    if (patient.allergies && patient.allergies.length) {
+      allergiesArea.innerHTML = `<div class="flex flex-wrap gap-2">${patient.allergies.map(a => `<span class="badge badge-danger">${a}</span>`).join('')}</div>`;
+    } else {
+      allergiesArea.innerHTML = `<p class="text-sm text-muted">No known allergies.</p>`;
+    }
+
+    const notesArea = document.getElementById('notesArea');
+    if (patient.notes && patient.notes.length) {
+      notesArea.innerHTML = patient.notes.map(n => `
+        <div class="note-item">
+          <div class="note-item__meta">${n.author} · ${n.date}</div>
+          <div class="note-item__text">${n.text}</div>
+        </div>
+      `).join('');
+    } else {
+      notesArea.innerHTML = `<p class="text-sm text-muted" data-i18n="patient_portal.no_notes"></p>`;
+      I18N.applyToDOM(notesArea);
+    }
+  }
+
+  render();
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

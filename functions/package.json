@@ -1,0 +1,17 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for the Dentist Sys super-admin panel",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.1"
+  },
+  "private": true
+}

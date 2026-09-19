@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Appointments — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="patient_portal.my_appointments">My Appointments</h1>
+    </div>
+    <div class="page-header__actions">
+      <a href="../public/booking.html" class="btn btn-primary"><span class="icon-plus"></span><span data-i18n="patient_portal.qa_book">Book Appointment</span></a>
+    </div>
+  </div>
+
+  <div class="tabs" id="apptTabs">
+    <button class="tab active" data-tab="upcoming" data-i18n="patient_portal.tab_upcoming">Upcoming</button>
+    <button class="tab" data-tab="completed" data-i18n="patient_portal.tab_completed">Completed</button>
+    <button class="tab" data-tab="cancelled" data-i18n="patient_portal.tab_cancelled">Cancelled</button>
+  </div>
+
+  <div class="flex flex-col gap-3" id="apptList" style="margin-top: var(--space-5);"></div>
+  <div id="emptyState" class="hidden"></div>
+</template>
+
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/mock-data.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'appointments', role: 'patient' });
+
+  const PATIENT_ID = 'P-1001';
+  const TODAY = '2026-09-02';
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+
+  let activeTab = 'upcoming';
+  let allAppointments = [];
+
+  function statusBadge(status) {
+    const map = { confirmed: 'info', pending: 'warning', completed: 'success', cancelled: 'danger', waiting: 'warning', in_progress: 'info', no_show: 'neutral' };
+    return `<span class="badge badge-${map[status] || 'neutral'}">${I18N.t('status.' + status)}</span>`;
+  }
+
+  function bucketFor(a) {
+    if (a.status === 'cancelled' || a.status === 'no_show') return 'cancelled';
+    if (a.status === 'completed') return 'completed';
+    return 'upcoming';
+  }
+
+  function render() {
+    const mine = allAppointments.filter(a => a.patientId === PATIENT_ID && bucketFor(a) === activeTab);
+    mine.sort((a, b) => activeTab === 'upcoming' ? (a.date + a.time).localeCompare(b.date + b.time) : (b.date + b.time).localeCompare(a.date + a.time));
+
+    const list = document.getElementById('apptList');
+    const empty = document.getElementById('emptyState');
+
+    if (mine.length === 0) {
+      list.classList.add('hidden');
+      empty.classList.remove('hidden');
+      const emptyKey = { upcoming: 'empty_upcoming', completed: 'empty_completed', cancelled: 'empty_cancelled' }[activeTab];
+      empty.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__icon">${icon('appointments')}</div>
+          <div class="empty-state__title" data-i18n="patient_portal.${emptyKey}"></div>
+        </div>`;
+      I18N.applyToDOM(empty);
+      return;
+    }
+
+    list.classList.remove('hidden');
+    empty.classList.add('hidden');
+    list.innerHTML = mine.map(a => `
+      <a href="appointment-detail.html?id=${a.id}" class="appt-card" style="text-decoration:none; color:inherit;">
+        <div class="appt-card__time">${a.time}<span>${a.duration}m</span></div>
+        <div class="appt-card__body">
+          <div class="appt-card__title">${a.treatment}</div>
+          <div class="appt-card__meta">${a.doctor} · ${a.date}</div>
+        </div>
+        ${statusBadge(a.status)}
+      </a>
+    `).join('');
+  }
+
+  document.getElementById('apptTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    document.querySelectorAll('#apptTabs .tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    render();
+  });
+
+  MOCK_API.getAppointments().then(data => { allAppointments = data; render(); });
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>

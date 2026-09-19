@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+<style>
+  .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: var(--space-6); align-items: flex-start; }
+  .settings-nav { display: flex; flex-direction: column; gap: 2px; }
+  .settings-nav button {
+    display: flex; align-items: center; padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+    color: var(--color-text-muted); text-align: start;
+  }
+  .settings-nav button:hover { background: var(--color-surface-alt); color: var(--color-text); }
+  .settings-nav button.active { background: var(--color-primary-light); color: var(--color-primary); }
+  .settings-nav__group-label {
+    padding: var(--space-3) var(--space-4) var(--space-1);
+    font-size: var(--fs-xs); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+  .settings-nav__group-label:first-child { padding-top: 0; }
+  .theme-option {
+    border: 2px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4);
+    cursor: pointer; display:flex; flex-direction: column; align-items:center; gap: var(--space-2);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .theme-option.selected { border-color: var(--color-primary); }
+  @media (max-width: 768px) {
+    .settings-layout { grid-template-columns: 1fr; }
+    .settings-nav { flex-direction: row; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="settings.title">Settings</h1>
+      <p class="page-header__desc" data-i18n="settings.desc">Manage your clinic preferences</p>
+    </div>
+  </div>
+
+  <div class="settings-layout" data-tabs-root>
+    <nav class="settings-nav tabs" style="border-bottom:none; flex-direction:column;">
+      <div class="settings-nav__group-label" data-i18n="settings.group_account">My Account</div>
+      <button class="tab active" data-tab-target="profile" data-i18n="settings.profile" style="justify-content:flex-start; border-bottom:none;">Profile</button>
+      <button class="tab" data-tab-target="security" data-i18n="settings.security" style="justify-content:flex-start; border-bottom:none;">Security</button>
+      <button class="tab" data-tab-target="appearance" data-i18n="settings.appearance" style="justify-content:flex-start; border-bottom:none;">Appearance</button>
+
+      <div class="settings-nav__group-label" data-i18n="settings.group_clinic">Clinic Settings</div>
+      <button class="tab" data-tab-target="general" data-i18n="settings.general" style="justify-content:flex-start; border-bottom:none;">General</button>
+      <button class="tab" data-tab-target="branches" data-i18n="settings.branches" style="justify-content:flex-start; border-bottom:none;">Branches</button>
+      <button class="tab" data-tab-target="hours" data-i18n="settings.working_hours" style="justify-content:flex-start; border-bottom:none;">Working Hours</button>
+      <button class="tab" data-tab-target="appt-settings" data-i18n="appointments.title" style="justify-content:flex-start; border-bottom:none;">Appointments</button>
+      <button class="tab" data-tab-target="notif-settings" data-i18n="notifications_page.title" style="justify-content:flex-start; border-bottom:none;">Notifications</button>
+
+      <div class="settings-nav__group-label" data-i18n="settings.group_team">Team</div>
+      <button class="tab" data-tab-target="team" data-i18n="settings.team" style="justify-content:flex-start; border-bottom:none;">Team</button>
+    </nav>
+
+    <div>
+      <div data-tab-panel="general" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.clinic_info">Clinic Information</div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" data-i18n="settings.clinic_name">Clinic Name</label><input type="text" class="form-control" id="fldClinicName"></div>
+          <div class="form-group"><label class="form-label" data-i18n="common.phone">Phone</label><input type="tel" class="form-control" id="fldClinicPhone"></div>
+        </div>
+        <div class="form-group"><label class="form-label" data-i18n="settings.whatsapp_number">WhatsApp Number</label><input type="tel" class="form-control" id="fldClinicWhatsapp"></div>
+        <div class="form-group"><label class="form-label" data-i18n="settings.address">Address</label><input type="text" class="form-control" id="fldClinicAddress"></div>
+        <button class="btn btn-primary save-settings-btn" data-i18n="common.save">Save</button>
+      </div>
+
+      <div data-tab-panel="branches" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.branches">Branches</div></div>
+        <p class="text-sm text-muted mb-4" data-i18n="settings.branches_desc">Each branch has its own receptionist and its own patients/appointments — a receptionist only ever sees the branch they were added to.</p>
+        <div class="flex flex-col gap-1" id="branchesList"></div>
+        <div id="pendingBranchNotice" class="hidden" style="margin-top: var(--space-4); background: var(--color-primary-light); color: var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); font-size: var(--fs-sm);"></div>
+        <button class="btn btn-primary mt-4" style="margin-top: var(--space-4);" data-modal-open="requestBranchModal" data-i18n="settings.request_new_branch">Request New Branch</button>
+      </div>
+
+      <div data-tab-panel="hours" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.working_hours">Working Hours</div></div>
+        <div class="flex flex-col gap-1" id="workingHoursList"></div>
+        <button class="btn btn-primary save-settings-btn mt-4" style="margin-top: var(--space-4);" data-i18n="common.save">Save</button>
+      </div>
+
+      <div data-tab-panel="appt-settings" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.appointment_settings">Appointment Settings</div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" data-i18n="settings.default_slot_duration">Default Slot Duration (min)</label><input type="number" class="form-control" value="30"></div>
+          <div class="form-group"><label class="form-label" data-i18n="settings.buffer_between">Buffer Between Appointments (min)</label><input type="number" class="form-control" value="5"></div>
+        </div>
+        <div class="form-group"><label class="form-label" data-i18n="settings.max_advance_booking">Max Advance Booking (days)</label><input type="number" class="form-control" value="60"></div>
+        <div class="divider mb-4" style="margin-bottom: var(--space-4);"></div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium" data-i18n="settings.allow_online_booking">Allow online booking</div><div class="text-sm text-muted" data-i18n="settings.allow_online_booking_desc">Patients can self-book via the patient portal</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium" data-i18n="settings.require_confirmation">Require confirmation</div><div class="text-sm text-muted" data-i18n="settings.require_confirmation_desc">New bookings need staff approval before confirming</div></div>
+          <label class="switch"><input type="checkbox"><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between">
+          <div><div class="fw-medium" data-i18n="settings.auto_cancel_noshows">Auto-cancel no-shows</div><div class="text-sm text-muted" data-i18n="settings.auto_cancel_noshows_desc">Cancel automatically after 15 minutes if patient hasn't checked in</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <button class="btn btn-primary save-settings-btn mt-4" style="margin-top: var(--space-4);" data-i18n="common.save">Save</button>
+      </div>
+
+      <div data-tab-panel="notif-settings" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.notification_settings">Notification Settings</div></div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium" data-i18n="settings.appt_confirmations">Appointment confirmations</div><div class="text-sm text-muted" data-i18n="settings.appt_confirmations_desc">Send when a new appointment is booked</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium" data-i18n="settings.appt_reminders">Appointment reminders</div><div class="text-sm text-muted" data-i18n="settings.appt_reminders_desc">Send 24 hours before the appointment</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium" data-i18n="settings.reschedule_notices">Reschedule notices</div><div class="text-sm text-muted" data-i18n="settings.reschedule_notices_desc">Notify patients when their appointment is moved</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between">
+          <div><div class="fw-medium" data-i18n="settings.cancellation_notices">Cancellation notices</div><div class="text-sm text-muted" data-i18n="settings.cancellation_notices_desc">Notify patients when an appointment is cancelled</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="divider" style="margin: var(--space-5) 0;"></div>
+        <label class="form-label mb-2" style="display:block;" data-i18n="settings.reminder_timing">Reminder timing</label>
+        <select class="form-control" style="max-width:280px;"><option data-i18n="settings.hours_before_24">24 hours before</option><option data-i18n="settings.hours_before_12">12 hours before</option><option data-i18n="settings.hours_before_2">2 hours before</option></select>
+        <div class="divider" style="margin: var(--space-5) 0;"></div>
+        <div class="card-title" style="font-size: var(--fs-base); margin-bottom: var(--space-3);" data-i18n="settings.delivery_channel">Delivery Channel</div>
+        <div class="flex items-center justify-between" style="padding-bottom: var(--space-3);">
+          <div><div class="fw-medium">WhatsApp</div><div class="text-sm text-muted" data-i18n="settings.channel_whatsapp_desc">Primary channel — used for the confirmation link patients get after booking</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <div class="flex items-center justify-between">
+          <div><div class="fw-medium">SMS</div><div class="text-sm text-muted" data-i18n="settings.channel_sms_desc">Fallback channel for patients without WhatsApp</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+        </div>
+        <button class="btn btn-primary save-settings-btn mt-4" style="margin-top: var(--space-4);" data-i18n="common.save">Save</button>
+      </div>
+
+      <div data-tab-panel="profile" class="card">
+        <div class="card-header"><div class="card-title" data-i18n="settings.profile">Profile</div></div>
+        <div class="flex items-center gap-4 mb-4">
+          <div class="avatar avatar-lg" id="profileAvatar">DR</div>
+          <div>
+            <button class="btn btn-secondary btn-sm" data-i18n="common.upload">Upload</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" data-i18n="common.name">Name</label><input type="text" class="form-control" id="fldDoctorName"></div>
+          <div class="form-group"><label class="form-label" data-i18n="settings.clinic_name">Clinic Name</label><input type="text" class="form-control" id="fldDoctorClinicName"></div>
+        </div>
+        <div class="form-group"><label class="form-label" data-i18n="common.email">Email</label><input type="email" class="form-control" id="fldDoctorEmail"></div>
+        <button class="btn btn-primary save-settings-btn" data-i18n="common.save">Save</button>
+      </div>
+
+      <div data-tab-panel="team" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.team">Team</div></div>
+        <p class="text-sm text-muted mb-4" data-i18n="settings.team_desc">Add and manage the receptionists who help run your clinic day to day.</p>
+        <a href="employees.html" class="btn btn-primary" data-i18n="settings.manage_team">Manage Team</a>
+      </div>
+
+      <div data-tab-panel="appearance" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.appearance">Appearance</div></div>
+        <label class="form-label mb-3" style="display:block;" data-i18n="settings.theme">Theme</label>
+        <div class="grid-2-even" style="max-width:420px;">
+          <div class="theme-option" id="themeOptionLight">
+            <span style="width:24px;height:24px;">${'{{SUN}}'}</span>
+            <span data-i18n="theme.light">Light</span>
+          </div>
+          <div class="theme-option" id="themeOptionDark">
+            <span style="width:24px;height:24px;">${'{{MOON}}'}</span>
+            <span data-i18n="theme.dark">Dark</span>
+          </div>
+        </div>
+        <div class="divider" style="margin: var(--space-6) 0;"></div>
+        <label class="form-label mb-3" style="display:block;" data-i18n="settings.language_region">Language & Region</label>
+        <div class="grid-2-even" style="max-width:420px;">
+          <div class="theme-option" id="langOptionEn"><span>EN</span><span>English</span></div>
+          <div class="theme-option" id="langOptionAr"><span>AR</span><span>العربية</span></div>
+        </div>
+      </div>
+
+      <div data-tab-panel="security" class="card hidden">
+        <div class="card-header"><div class="card-title" data-i18n="settings.security">Security</div></div>
+        <div class="form-group"><label class="form-label" data-i18n="settings.current_password">Current Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" data-i18n="settings.new_password">New Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
+          <div class="form-group"><label class="form-label" data-i18n="settings.confirm_password">Confirm Password</label><input type="password" class="form-control" placeholder="••••••••"></div>
+        </div>
+        <div class="divider mb-4" style="margin-bottom: var(--space-4);"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="fw-medium" data-i18n="settings.two_factor_auth">Two-Factor Authentication</div>
+            <div class="text-sm text-muted" data-i18n="settings.two_factor_auth_desc">Add an extra layer of security to your account</div>
+          </div>
+          <label class="switch"><input type="checkbox"><span class="switch-track"></span></label>
+        </div>
+        <button class="btn btn-primary save-settings-btn mt-4" style="margin-top:var(--space-4);" data-i18n="common.save">Save</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div class="modal-backdrop" id="requestBranchModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="settings.request_new_branch">Request New Branch</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-muted mb-4" data-i18n="settings.request_branch_desc">Sent to your Dev Smart X account manager for approval — the branch goes live once approved.</p>
+      <div class="form-group"><label class="form-label" data-i18n="settings.branch_name">Branch Name</label><input type="text" class="form-control" id="reqBranchName" data-i18n-placeholder="settings.branch_name_placeholder" placeholder="e.g. 6th of October Branch"></div>
+      <div class="form-group"><label class="form-label" data-i18n="settings.address">Address</label><input type="text" class="form-control" id="reqBranchAddress" data-i18n-placeholder="settings.address_placeholder" placeholder="Street, city"></div>
+      <div class="form-group"><label class="form-label" data-i18n="common.phone">Phone</label><input type="tel" class="form-control" id="reqBranchPhone" placeholder="+1 555-0100"></div>
+      <div class="form-group"><label class="form-label" data-i18n="settings.notes_optional">Notes (optional)</label><input type="text" class="form-control" id="reqBranchNotes" data-i18n-placeholder="settings.notes_placeholder" placeholder="Anything else worth knowing"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="submitBranchRequestBtn" data-i18n="settings.send_request">Send Request</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'settings' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML
+    .replace("${'{{SUN}}'}", ICONS.sun)
+    .replace("${'{{MOON}}'}", ICONS.moon);
+  I18N.applyToDOM(content);
+
+  let currentClinic = null;
+
+  function renderWorkingHours(clinic) {
+    document.getElementById('workingHoursList').innerHTML = clinic.workingHours.map((d, i) => `
+      <div class="flex items-center gap-4" style="padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
+        <label class="switch"><input type="checkbox" data-day-toggle="${i}" ${d.enabled ? 'checked' : ''}><span class="switch-track"></span></label>
+        <span class="fw-medium text-sm" style="width:100px;">${I18N.t('settings.days.' + d.day)}</span>
+        <input type="time" class="form-control" style="max-width:130px;" value="${d.open}" ${d.enabled ? '' : 'disabled'} data-day-open="${i}">
+        <span class="text-muted text-sm">${I18N.t('settings.to')}</span>
+        <input type="time" class="form-control" style="max-width:130px;" value="${d.close}" ${d.enabled ? '' : 'disabled'} data-day-close="${i}">
+      </div>
+    `).join('');
+
+    document.querySelectorAll('[data-day-toggle]').forEach(input => input.addEventListener('change', () => {
+      const idx = input.getAttribute('data-day-toggle');
+      document.querySelector(`[data-day-open="${idx}"]`).disabled = !input.checked;
+      document.querySelector(`[data-day-close="${idx}"]`).disabled = !input.checked;
+    }));
+  }
+
+  MOCK_API.getClinicById(clinicId).then(clinic => {
+    if (!clinic) return;
+    currentClinic = clinic;
+
+    document.getElementById('fldClinicName').value = clinic.clinicName;
+    document.getElementById('fldClinicPhone').value = clinic.phone;
+    document.getElementById('fldClinicWhatsapp').value = clinic.whatsappNumber;
+    document.getElementById('fldClinicAddress').value = clinic.address;
+
+    document.getElementById('fldDoctorName').value = clinic.doctorName;
+    document.getElementById('fldDoctorClinicName').value = clinic.clinicName;
+    document.getElementById('fldDoctorEmail').value = clinic.email;
+    document.getElementById('profileAvatar').textContent = clinic.doctorName.replace(/^Dr\.?\s+/i, '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+    renderWorkingHours(clinic);
+
+    document.querySelector('[data-tab-panel="general"] .save-settings-btn').addEventListener('click', () => {
+      clinic.clinicName = document.getElementById('fldClinicName').value.trim();
+      clinic.phone = document.getElementById('fldClinicPhone').value.trim();
+      clinic.whatsappNumber = document.getElementById('fldClinicWhatsapp').value.trim();
+      clinic.address = document.getElementById('fldClinicAddress').value.trim();
+    });
+
+    document.querySelector('[data-tab-panel="profile"] .save-settings-btn').addEventListener('click', () => {
+      clinic.doctorName = document.getElementById('fldDoctorName').value.trim();
+      clinic.clinicName = document.getElementById('fldDoctorClinicName').value.trim();
+      clinic.email = document.getElementById('fldDoctorEmail').value.trim();
+    });
+  });
+
+  function renderBranches(branches) {
+    const list = document.getElementById('branchesList');
+    if (!branches.length) {
+      list.innerHTML = `<p class="text-sm text-muted">${I18N.t('settings.no_branches_yet')}</p>`;
+      return;
+    }
+    list.innerHTML = branches.map(b => `
+      <div class="flex items-center justify-between" style="padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);">
+        <div>
+          <div class="fw-medium">${b.name}${b.isDefault ? ` <span class="badge badge-info">${I18N.t('settings.main_branch')}</span>` : ''}</div>
+          <div class="text-sm text-muted">${b.address || I18N.t('settings.no_address_on_file')}</div>
+        </div>
+        <span class="badge badge-${b.status === 'disabled' ? 'danger' : 'success'}">${b.status === 'disabled' ? I18N.t('settings.disabled') : I18N.t('settings.active')}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderPendingRequest(requests) {
+    const notice = document.getElementById('pendingBranchNotice');
+    const pending = requests.filter(r => r.status === 'pending');
+    if (!pending.length) {
+      notice.classList.add('hidden');
+      return;
+    }
+    notice.classList.remove('hidden');
+    notice.innerHTML = pending.map(r => `${I18N.t('settings.pending_request_prefix')} <strong>${r.requestedName}</strong> — ${I18N.t('settings.pending_request_suffix')}`).join('<br>');
+  }
+
+  function loadBranchesTab() {
+    db.collection('branches').where('clinicId', '==', clinicId).get().then(snap => {
+      renderBranches(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    db.collection('branchRequests').where('clinicId', '==', clinicId).get().then(snap => {
+      renderPendingRequest(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }
+  loadBranchesTab();
+
+  document.getElementById('submitBranchRequestBtn').addEventListener('click', async () => {
+    const requestedName = document.getElementById('reqBranchName').value.trim();
+    if (!requestedName) { Toast.error(I18N.t('settings.missing_info_title'), I18N.t('settings.branch_name_required')); return; }
+
+    const btn = document.getElementById('submitBranchRequestBtn');
+    btn.disabled = true;
+    try {
+      await db.collection('branchRequests').add({
+        clinicId,
+        requestedName,
+        requestedAddress: document.getElementById('reqBranchAddress').value.trim(),
+        requestedPhone: document.getElementById('reqBranchPhone').value.trim(),
+        notes: document.getElementById('reqBranchNotes').value.trim(),
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      Modal.close('requestBranchModal');
+      document.getElementById('reqBranchName').value = '';
+      document.getElementById('reqBranchAddress').value = '';
+      document.getElementById('reqBranchPhone').value = '';
+      document.getElementById('reqBranchNotes').value = '';
+      Toast.success(I18N.t('settings.request_sent_title'), I18N.t('settings.request_sent_desc'));
+      loadBranchesTab();
+    } catch (err) {
+      Toast.error(I18N.t('settings.request_failed_title'), err.message || I18N.t('toast.error_desc'));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function syncThemeOptions() {
+    const isDark = THEME.getTheme() === 'dark';
+    document.getElementById('themeOptionLight').classList.toggle('selected', !isDark);
+    document.getElementById('themeOptionDark').classList.toggle('selected', isDark);
+  }
+  function syncLangOptions() {
+    const lang = I18N.getLang();
+    document.getElementById('langOptionEn').classList.toggle('selected', lang === 'en');
+    document.getElementById('langOptionAr').classList.toggle('selected', lang === 'ar');
+  }
+  syncThemeOptions();
+  syncLangOptions();
+
+  document.getElementById('themeOptionLight').addEventListener('click', () => { THEME.apply('light'); syncThemeOptions(); });
+  document.getElementById('themeOptionDark').addEventListener('click', () => { THEME.apply('dark'); syncThemeOptions(); });
+  document.getElementById('langOptionEn').addEventListener('click', () => { I18N.setLang('en'); syncLangOptions(); });
+  document.getElementById('langOptionAr').addEventListener('click', () => { I18N.setLang('ar'); syncLangOptions(); });
+
+  document.querySelectorAll('.save-settings-btn').forEach(btn => {
+    btn.addEventListener('click', () => Toast.success(I18N.t('toast.saved_title'), I18N.t('toast.saved_desc')));
+  });
+
+  document.addEventListener('theme:changed', syncThemeIconOnSettingsLoad);
+  function syncThemeIconOnSettingsLoad() { syncThemeOptions(); }
+
+  document.addEventListener('i18n:changed', () => {
+    if (currentClinic) renderWorkingHours(currentClinic);
+    loadBranchesTab();
+  });
+</script>
+</body>
+</html>

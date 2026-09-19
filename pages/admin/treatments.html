@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treatments — DentalCare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../css/variables.css">
+<link rel="stylesheet" href="../../css/reset.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css">
+<link rel="stylesheet" href="../../css/layout.css">
+</head>
+<body>
+
+<div class="app-shell" id="app-shell"></div>
+
+<template id="tpl-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title" data-i18n="treatments.title">Treatments</h1>
+      <p class="page-header__desc" data-i18n="treatments.desc">Manage treatment plans and procedures</p>
+    </div>
+    <div class="page-header__actions">
+      <button class="btn btn-primary" data-modal-open="newTreatmentModal"><span class="icon-plus"></span><span data-i18n="treatments.new_treatment">New Treatment</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table to-cards">
+        <thead>
+          <tr>
+            <th data-i18n="common.treatment">Treatment</th>
+            <th>Category</th>
+            <th data-i18n="treatments.cost">Cost</th>
+            <th data-i18n="treatments.duration">Duration</th>
+            <th>Patients</th>
+            <th data-i18n="common.status">Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<div class="modal-backdrop" id="newTreatmentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" data-i18n="treatments.new_treatment">New Treatment</div>
+      <button class="btn-icon btn-sm" data-modal-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" data-i18n="common.name">Name</label><input type="text" class="form-control" placeholder="Treatment name"></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" placeholder="Short description of the procedure..."></textarea></div>
+      <div class="form-group"><label class="form-label">Category</label>
+        <select class="form-control"><option>General</option><option>Cosmetic</option><option>Orthodontics</option><option>Oral Surgery</option><option>Surgery</option><option>Endodontics</option><option>Periodontics</option><option>Prosthodontics</option><option>Diagnostics</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" data-i18n="treatments.cost">Cost</label><input type="number" class="form-control" placeholder="$0"></div>
+        <div class="form-group"><label class="form-label" data-i18n="treatments.duration">Duration (min)</label><input type="number" class="form-control" placeholder="30"></div>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="form-label" style="margin:0;" data-i18n="status.active">Active</span>
+        <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" id="saveTreatmentBtn" data-i18n="common.save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/translations.js"></script>
+<script src="../../js/i18n.js"></script>
+<script src="../../js/theme.js"></script>
+<script src="../../js/icons.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/components.js"></script>
+<script src="../../js/app-shell.js"></script>
+<script>
+  THEME.init();
+  I18N.init(TRANSLATIONS);
+  AppShell.init({ active: 'treatments' });
+  auth.onAuthStateChanged((user) => {
+    if (!user) { window.location.href = '../public/login.html'; }
+  });
+  const clinicId = TENANT.getCurrentClinicId();
+
+  const content = document.getElementById('pageContent');
+  content.innerHTML = document.getElementById('tpl-page').innerHTML;
+  I18N.applyToDOM(content);
+  document.querySelector('.icon-plus').innerHTML = ICONS.plus;
+
+  let allTreatments = [];
+
+  async function render() {
+    document.getElementById('tableBody').innerHTML = allTreatments.map(t => `
+      <tr>
+        <td data-label="${I18N.t('common.treatment')}">
+          <div class="fw-medium">${t.name}</div>
+          <div class="text-xs text-muted">${t.description}</div>
+        </td>
+        <td data-label="Category"><span class="badge badge-info">${t.category}</span></td>
+        <td data-label="${I18N.t('treatments.cost')}" class="fw-semibold">$${t.cost}</td>
+        <td data-label="${I18N.t('treatments.duration')}" class="cell-muted">${t.duration} min</td>
+        <td data-label="Patients" class="cell-muted">${t.patientsCount}</td>
+        <td data-label="${I18N.t('common.status')}"><span class="badge badge-${t.status === 'active' ? 'success' : 'neutral'}">${I18N.t('status.' + t.status)}</span></td>
+        <td class="cell-actions">
+          <button class="btn-icon btn-sm tooltip" data-tooltip="${I18N.t('common.edit')}">${icon('edit')}</button>
+          <button class="btn-icon btn-sm tooltip toggle-treatment-btn" data-id="${t.id}" data-tooltip="${t.status === 'active' ? I18N.t('common.disable') : I18N.t('common.enable')}">${t.status === 'active' ? icon('close') : icon('checkCircle')}</button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.querySelectorAll('.toggle-treatment-btn').forEach(btn => btn.addEventListener('click', () => {
+      const t = allTreatments.find(x => x.id === btn.dataset.id);
+      if (t) { t.status = t.status === 'active' ? 'inactive' : 'active'; render(); Toast.success(I18N.t('toast.saved_title')); }
+    }));
+  }
+
+  document.getElementById('saveTreatmentBtn').addEventListener('click', () => {
+    Modal.close('newTreatmentModal');
+    Toast.success(I18N.t('toast.saved_title'), I18N.t('toast.saved_desc'));
+  });
+
+  MOCK_API.getTreatments(clinicId).then(data => { allTreatments = data; render(); });
+  document.addEventListener('i18n:changed', render);
+</script>
+</body>
+</html>
