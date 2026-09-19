@@ -11,6 +11,10 @@
       "destination": "/pages/admin/dashboard.html"
     },
     {
+      "source": "/doctor",
+      "destination": "/pages/admin/dashboard.html"
+    },
+    {
       "source": "/super-admin",
       "destination": "/pages/super-admin/dashboard.html"
     },
