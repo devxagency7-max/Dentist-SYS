@@ -1,0 +1,26 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/patient/:clinic",
+      "destination": "/pages/public/booking.html?clinic=:clinic"
+    },
+    {
+      "source": "/admin",
+      "destination": "/pages/admin/dashboard.html"
+    },
+    {
+      "source": "/super-admin",
+      "destination": "/pages/super-admin/dashboard.html"
+    },
+    {
+      "source": "/receptionist",
+      "destination": "/pages/receptionist/dashboard.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/pages/public/login.html"
+    }
+  ]
+}
