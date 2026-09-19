@@ -46,11 +46,17 @@
   </div>
 </template>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -58,7 +64,16 @@
   I18N.init(TRANSLATIONS);
   AppShell.init({ active: 'invoices', role: 'patient' });
 
-  const PATIENT_ID = 'P-1001';
+  let PATIENT_ID = null;
+
+  async function getActivePatientId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('patientId')) return params.get('patientId');
+    if (localStorage.getItem('patientId')) return localStorage.getItem('patientId');
+    if (auth.currentUser) return auth.currentUser.uid;
+    const patients = await API.getPatients();
+    return patients.length ? patients[0].id : null;
+  }
 
   const content = document.getElementById('pageContent');
   content.innerHTML = document.getElementById('tpl-page').innerHTML;
@@ -70,7 +85,10 @@
   }
 
   async function render() {
-    const payments = await MOCK_API.getPayments();
+    PATIENT_ID = await getActivePatientId();
+    if (!PATIENT_ID) return;
+
+    const payments = await API.getPayments();
     const mine = payments.filter(p => p.patientId === PATIENT_ID);
     const tbody = document.getElementById('invoiceRows');
     const empty = document.getElementById('emptyState');
@@ -86,16 +104,16 @@
     tableWrap.classList.remove('hidden');
     empty.classList.add('hidden');
     tbody.innerHTML = mine.map(p => {
-      const remaining = p.amount - p.paid;
+      const remaining = (p.amount || 0) - (p.paid || 0);
       return `
         <tr>
           <td data-label="${I18N.t('patient_portal.invoice_number')}" class="fw-medium">${p.id}</td>
-          <td data-label="${I18N.t('common.treatment')}">${p.treatment}</td>
-          <td data-label="${I18N.t('patient_portal.total')}" class="fw-semibold">$${p.amount}</td>
-          <td data-label="${I18N.t('patient_portal.paid')}" class="cell-muted">$${p.paid}</td>
+          <td data-label="${I18N.t('common.treatment')}">${p.treatment || 'Treatment'}</td>
+          <td data-label="${I18N.t('patient_portal.total')}" class="fw-semibold">$${p.amount || 0}</td>
+          <td data-label="${I18N.t('patient_portal.paid')}" class="cell-muted">$${p.paid || 0}</td>
           <td data-label="${I18N.t('patient_portal.remaining')}" class="fw-semibold" style="color:${remaining > 0 ? 'var(--color-danger)' : 'var(--color-success)'};">$${remaining}</td>
           <td data-label="${I18N.t('common.status')}">${statusBadge(p.status)}</td>
-          <td data-label="${I18N.t('common.date')}" class="cell-muted">${p.date}</td>
+          <td data-label="${I18N.t('common.date')}" class="cell-muted">${p.date || '—'}</td>
         </tr>
       `;
     }).join('');

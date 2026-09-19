@@ -33,9 +33,9 @@ CSS classes + small JS hooks (data-attributes) — no framework required.
 
 ## Usage pattern (JS)
 Each admin page:
-1. Loads shared CSS + `js/translations.js`, `js/i18n.js`, `js/theme.js`, `js/icons.js`, `js/mock-data.js`, `js/components.js`, `js/app-shell.js`
+1. Loads shared CSS + `js/translations.js`, `js/i18n.js`, `js/theme.js`, `js/icons.js`, `js/firestore-api.js`, `js/components.js`, `js/app-shell.js`
 2. Calls `THEME.init()`, `I18N.init(TRANSLATIONS)`, `AppShell.init({ active: 'pageKey' })`
 3. Renders its own content into `#pageContent` from a `<template>` in the page
-4. Fetches mock data via `MOCK_API.getX()` (swap internals for real `fetch()` later)
+4. Fetches live data via `API.getX()` / `MOCK_API.getX()` backed by Firebase Firestore
 
 See `pages/admin/dashboard.html` for the fullest example.

@@ -104,11 +104,17 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -134,13 +140,13 @@
           <span class="icon-wrap">${icon(iconName)}</span>
           <span class="text-sm text-muted">${label}</span>
         </span>
-        <span class="fw-semibold">${value}</span>
+        <span class="fw-semibold">${value || '—'}</span>
       </div>
     `;
   }
 
   async function render() {
-    const appointments = await MOCK_API.getAppointments();
+    const appointments = await API.getAppointments();
     const appt = appointments.find(a => a.id === apptId);
 
     if (!appt) {
@@ -154,22 +160,22 @@
     document.getElementById('apptStatusBadge').innerHTML = statusBadge(appt.status);
 
     document.getElementById('apptInfoRows').innerHTML = [
-      infoRow('user', I18N.t('common.doctor'), appt.doctor),
-      infoRow('treatments', I18N.t('common.treatment'), appt.treatment),
-      infoRow('calendar', I18N.t('common.date'), appt.date),
-      infoRow('clock', I18N.t('common.time'), `${appt.time} (${appt.duration} min)`),
+      infoRow('user', I18N.t('common.doctor'), appt.doctor || 'Doctor'),
+      infoRow('treatments', I18N.t('common.treatment'), appt.treatment || 'Consultation'),
+      infoRow('calendar', I18N.t('common.date'), appt.date || '—'),
+      infoRow('clock', I18N.t('common.time'), `${appt.time || '—'} (${appt.duration || 30} min)`),
     ].join('');
 
-    const clinic = await MOCK_API.getClinicById(appt.clinicId) || (await MOCK_API.getClinics())[0];
+    const clinic = (appt.clinicId ? await API.getClinicById(appt.clinicId) : null) || (await API.getClinics())[0] || {};
     document.getElementById('clinicInfoRows').innerHTML = [
-      infoRow('idCard', 'Clinic', clinic.clinicName),
-      infoRow('phone', I18N.t('common.phone'), clinic.phone),
-      infoRow('mail', I18N.t('common.email'), clinic.contactEmail),
-      infoRow('mapPin', 'Address', clinic.address),
+      infoRow('idCard', 'Clinic', clinic.clinicName || 'Clinic'),
+      infoRow('phone', I18N.t('common.phone'), clinic.phone || '—'),
+      infoRow('mail', I18N.t('common.email'), clinic.email || clinic.contactEmail || '—'),
+      infoRow('mapPin', 'Address', clinic.address || '—'),
     ].join('');
 
-    const messages = await MOCK_API.getMessageLog();
-    const related = messages.filter(m => m.appointment.startsWith(appt.treatment));
+    const messages = await API.getMessageLog();
+    const related = messages.filter(m => m.appointment && appt.treatment && m.appointment.startsWith(appt.treatment));
     const channels = [
       { key: 'whatsapp', icon: 'whatsapp', label: 'WhatsApp' },
       { key: 'sms', icon: 'sms', label: 'SMS' },
@@ -198,22 +204,25 @@
 
     if (canModify) {
       document.getElementById('detailRescheduleBtn').onclick = () => {
-        document.getElementById('rescheduleDateInput').value = appt.date;
-        document.getElementById('rescheduleTimeInput').value = appt.time;
+        document.getElementById('rescheduleDateInput').value = appt.date || '';
+        document.getElementById('rescheduleTimeInput').value = appt.time || '';
         Modal.open('rescheduleApptModal');
       };
       document.getElementById('detailCancelBtn').onclick = () => Modal.open('cancelApptModal');
-      document.getElementById('confirmCancelApptBtn').onclick = () => {
-        appt.status = 'cancelled';
+      document.getElementById('confirmCancelApptBtn').onclick = async () => {
+        await API.updateAppointment(apptId, { status: 'cancelled' });
         Modal.close('cancelApptModal');
-        render();
+        await render();
         Toast.success(I18N.t('toast.saved_title'), 'Your appointment has been cancelled.');
       };
-      document.getElementById('confirmRescheduleApptBtn').onclick = () => {
-        appt.date = document.getElementById('rescheduleDateInput').value || appt.date;
-        appt.time = document.getElementById('rescheduleTimeInput').value || appt.time;
+      document.getElementById('confirmRescheduleApptBtn').onclick = async () => {
+        const newDate = document.getElementById('rescheduleDateInput').value;
+        const newTime = document.getElementById('rescheduleTimeInput').value;
+        if (newDate && newTime) {
+          await API.updateAppointment(apptId, { date: newDate, time: newTime });
+        }
         Modal.close('rescheduleApptModal');
-        render();
+        await render();
         Toast.success('Appointment rescheduled', 'You will receive a confirmation shortly.');
       };
     }

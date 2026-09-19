@@ -71,11 +71,17 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -83,8 +89,17 @@
   I18N.init(TRANSLATIONS);
   AppShell.init({ active: 'dashboard', role: 'patient' });
 
-  const PATIENT_ID = 'P-1001';
-  const TODAY = '2026-09-02';
+  const TODAY = new Date().toISOString().slice(0, 10);
+  let PATIENT_ID = null;
+
+  async function getActivePatientId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('patientId')) return params.get('patientId');
+    if (localStorage.getItem('patientId')) return localStorage.getItem('patientId');
+    if (auth.currentUser) return auth.currentUser.uid;
+    const patients = await API.getPatients();
+    return patients.length ? patients[0].id : null;
+  }
 
   const content = document.getElementById('pageContent');
   content.innerHTML = document.getElementById('tpl-page').innerHTML;
@@ -98,8 +113,10 @@
   }
 
   async function renderGreeting() {
-    const patient = await MOCK_API.getPatient(PATIENT_ID);
-    document.getElementById('greetingTitle').textContent = `${I18N.t(greetingKey())}, ${patient.name.split(' ')[0]} 👋`;
+    if (!PATIENT_ID) return;
+    const patient = await API.getPatient(PATIENT_ID);
+    const name = patient && patient.name ? patient.name.split(' ')[0] : 'Patient';
+    document.getElementById('greetingTitle').textContent = `${I18N.t(greetingKey())}, ${name} 👋`;
   }
 
   function statusBadge(status) {
@@ -108,15 +125,19 @@
   }
 
   let activeApptId = null;
+  let activeAppt = null;
 
   async function renderNextAppointment() {
-    const appointments = await MOCK_API.getAppointments();
+    if (!PATIENT_ID) return;
+    const appointments = await API.getAppointments();
     const upcoming = appointments
       .filter(a => a.patientId === PATIENT_ID && a.date >= TODAY && ['confirmed', 'pending'].includes(a.status))
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
 
     const area = document.getElementById('nextApptArea');
     if (!upcoming) {
+      activeApptId = null;
+      activeAppt = null;
       area.innerHTML = `
         <div class="empty-state">
           <div class="empty-state__icon">${icon('calendarCheck')}</div>
@@ -129,12 +150,13 @@
     }
 
     activeApptId = upcoming.id;
+    activeAppt = upcoming;
     area.innerHTML = `
       <div class="appt-card" style="border:none; padding:0; background:transparent; flex-wrap:wrap;">
-        <div class="appt-card__time">${upcoming.time}<span>${upcoming.duration}m</span></div>
+        <div class="appt-card__time">${upcoming.time}<span>${upcoming.duration || 30}m</span></div>
         <div class="appt-card__body">
-          <div class="appt-card__title">${upcoming.treatment}</div>
-          <div class="appt-card__meta">${upcoming.doctor} · ${upcoming.date}</div>
+          <div class="appt-card__title">${upcoming.treatment || 'Consultation'}</div>
+          <div class="appt-card__meta">${upcoming.doctor || 'Doctor'} · ${upcoming.date}</div>
         </div>
         ${statusBadge(upcoming.status)}
       </div>
@@ -154,22 +176,25 @@
     document.getElementById('dashCancelBtn').addEventListener('click', () => Modal.open('cancelApptModal'));
   }
 
-  document.getElementById('confirmCancelApptBtn').addEventListener('click', () => {
-    const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
-    if (appt) appt.status = 'cancelled';
+  document.getElementById('confirmCancelApptBtn').addEventListener('click', async () => {
+    if (activeApptId) {
+      await API.updateAppointment(activeApptId, { status: 'cancelled' });
+    }
     Modal.close('cancelApptModal');
-    renderNextAppointment();
+    await renderNextAppointment();
     Toast.success(I18N.t('toast.saved_title'), 'Your appointment has been cancelled.');
   });
 
-  document.getElementById('confirmRescheduleApptBtn').addEventListener('click', () => {
-    const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
-    if (appt) {
-      appt.date = document.getElementById('rescheduleDateInput').value || appt.date;
-      appt.time = document.getElementById('rescheduleTimeInput').value || appt.time;
+  document.getElementById('confirmRescheduleApptBtn').addEventListener('click', async () => {
+    if (activeApptId) {
+      const newDate = document.getElementById('rescheduleDateInput').value;
+      const newTime = document.getElementById('rescheduleTimeInput').value;
+      if (newDate && newTime) {
+        await API.updateAppointment(activeApptId, { date: newDate, time: newTime });
+      }
     }
     Modal.close('rescheduleApptModal');
-    renderNextAppointment();
+    await renderNextAppointment();
     Toast.success('Appointment rescheduled', 'You will receive a confirmation shortly.');
   });
 
@@ -200,15 +225,21 @@
       }
       if (act === 'reschedule') {
         if (!activeApptId) { Toast.warning('No upcoming appointment', 'You have no appointment to reschedule.'); return; }
-        const appt = MOCK_DATA.appointments.find(a => a.id === activeApptId);
-        document.getElementById('rescheduleDateInput').value = appt.date;
-        document.getElementById('rescheduleTimeInput').value = appt.time;
+        if (activeAppt) {
+          document.getElementById('rescheduleDateInput').value = activeAppt.date;
+          document.getElementById('rescheduleTimeInput').value = activeAppt.time;
+        }
         Modal.open('rescheduleApptModal');
       }
     }));
   }
 
-  function renderAll() { renderGreeting(); renderNextAppointment(); renderQuickActions(); }
+  async function renderAll() {
+    PATIENT_ID = await getActivePatientId();
+    await renderGreeting();
+    await renderNextAppointment();
+    renderQuickActions();
+  }
   renderAll();
   document.addEventListener('i18n:changed', renderAll);
 </script>

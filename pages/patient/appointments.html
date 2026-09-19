@@ -37,11 +37,17 @@
   <div id="emptyState" class="hidden"></div>
 </template>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -49,8 +55,16 @@
   I18N.init(TRANSLATIONS);
   AppShell.init({ active: 'appointments', role: 'patient' });
 
-  const PATIENT_ID = 'P-1001';
-  const TODAY = '2026-09-02';
+  let PATIENT_ID = null;
+
+  async function getActivePatientId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('patientId')) return params.get('patientId');
+    if (localStorage.getItem('patientId')) return localStorage.getItem('patientId');
+    if (auth.currentUser) return auth.currentUser.uid;
+    const patients = await API.getPatients();
+    return patients.length ? patients[0].id : null;
+  }
 
   const content = document.getElementById('pageContent');
   content.innerHTML = document.getElementById('tpl-page').innerHTML;
@@ -95,10 +109,10 @@
     empty.classList.add('hidden');
     list.innerHTML = mine.map(a => `
       <a href="appointment-detail.html?id=${a.id}" class="appt-card" style="text-decoration:none; color:inherit;">
-        <div class="appt-card__time">${a.time}<span>${a.duration}m</span></div>
+        <div class="appt-card__time">${a.time || '—'}<span>${a.duration || 30}m</span></div>
         <div class="appt-card__body">
-          <div class="appt-card__title">${a.treatment}</div>
-          <div class="appt-card__meta">${a.doctor} · ${a.date}</div>
+          <div class="appt-card__title">${a.treatment || 'Consultation'}</div>
+          <div class="appt-card__meta">${a.doctor || 'Doctor'} · ${a.date || '—'}</div>
         </div>
         ${statusBadge(a.status)}
       </a>
@@ -114,7 +128,13 @@
     render();
   });
 
-  MOCK_API.getAppointments().then(data => { allAppointments = data; render(); });
+  async function initData() {
+    PATIENT_ID = await getActivePatientId();
+    allAppointments = await API.getAppointments();
+    render();
+  }
+
+  initData();
   document.addEventListener('i18n:changed', render);
 </script>
 </body>

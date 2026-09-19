@@ -81,11 +81,15 @@ const MOCK_API = {
   getNotifications: (clinicId, branchId) => scopedQuery('notifications', clinicId, branchId).get().then(docsOf),
   getMessageLog: (clinicId, branchId) => scopedQuery('messageLog', clinicId, branchId).get().then(docsOf),
 
-  /* ---------------- Charts (per-clinic derived stats; kept simple/static for now) ---------------- */
-  getRevenueChart: () => db.collection('charts').doc('revenue').get().then((d) => (d.exists ? d.data() : null)),
-  getMonthlyRevenueChart: () => db.collection('charts').doc('monthlyRevenue').get().then((d) => (d.exists ? d.data() : null)),
-  getAppointmentStatusChart: () => db.collection('charts').doc('appointmentStatus').get().then((d) => (d.exists ? d.data() : null)),
-  getNoShowChart: () => db.collection('charts').doc('noShow').get().then((d) => (d.exists ? d.data() : null)),
-  getTreatmentPopularityChart: () => db.collection('charts').doc('treatmentPopularity').get().then((d) => (d.exists ? d.data() : null)),
+  /* ---------------- Charts (per-clinic derived stats; fallback to empty shapes) ---------------- */
+  getRevenueChart: () => db.collection('charts').doc('revenue').get().then((d) => (d.exists ? d.data() : { labels: [], values: [] })),
+  getMonthlyRevenueChart: () => db.collection('charts').doc('monthlyRevenue').get().then((d) => (d.exists ? d.data() : { labels: [], values: [] })),
+  getAppointmentStatusChart: () => db.collection('charts').doc('appointmentStatus').get().then((d) => (d.exists ? d.data() : { labels: [], values: [], colors: [] })),
+  getNoShowChart: () => db.collection('charts').doc('noShow').get().then((d) => (d.exists ? d.data() : { labels: [], values: [] })),
+  getTreatmentPopularityChart: () => db.collection('charts').doc('treatmentPopularity').get().then((d) => (d.exists ? d.data() : { labels: [], values: [], colors: [] })),
   getEmployeePerformance: () => db.collection('employeePerformance').get().then(docsOf),
 };
+
+// Global API alias for clean naming across all application scripts
+const API = MOCK_API;
+

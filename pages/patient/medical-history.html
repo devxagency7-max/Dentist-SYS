@@ -76,11 +76,17 @@
   </div>
 </template>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -88,7 +94,16 @@
   I18N.init(TRANSLATIONS);
   AppShell.init({ active: 'medical_history', role: 'patient' });
 
-  const PATIENT_ID = 'P-1001';
+  let PATIENT_ID = null;
+
+  async function getActivePatientId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('patientId')) return params.get('patientId');
+    if (localStorage.getItem('patientId')) return localStorage.getItem('patientId');
+    if (auth.currentUser) return auth.currentUser.uid;
+    const patients = await API.getPatients();
+    return patients.length ? patients[0].id : null;
+  }
 
   const content = document.getElementById('pageContent');
   content.innerHTML = document.getElementById('tpl-page').innerHTML.replace("${'{{LOCK_ICON}}'}", ICONS.lock);
@@ -100,30 +115,43 @@
   }
 
   async function render() {
-    const [patient, appointments] = await Promise.all([MOCK_API.getPatient(PATIENT_ID), MOCK_API.getAppointments()]);
-    const visits = appointments.filter(a => a.patientId === PATIENT_ID).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    PATIENT_ID = await getActivePatientId();
+    if (!PATIENT_ID) return;
 
-    document.getElementById('visitsRows').innerHTML = visits.map(v => `
-      <tr>
-        <td data-label="${I18N.t('common.date')}" class="cell-muted">${v.date}</td>
-        <td data-label="${I18N.t('common.treatment')}" class="fw-medium">${v.treatment}</td>
-        <td data-label="${I18N.t('common.doctor')}" class="cell-muted">${v.doctor}</td>
-        <td data-label="${I18N.t('common.status')}">${statusBadge(v.status)}</td>
-      </tr>
-    `).join('');
+    const [patient, appointments] = await Promise.all([
+      API.getPatient(PATIENT_ID),
+      API.getAppointments()
+    ]);
+    const visits = (appointments || [])
+      .filter(a => a.patientId === PATIENT_ID)
+      .sort((a, b) => ((b.date || '') + (b.time || '')).localeCompare((a.date || '') + (a.time || '')));
+
+    const visitsRows = document.getElementById('visitsRows');
+    if (!visits.length) {
+      visitsRows.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state__title">No visits found</div></div></td></tr>`;
+    } else {
+      visitsRows.innerHTML = visits.map(v => `
+        <tr>
+          <td data-label="${I18N.t('common.date')}" class="cell-muted">${v.date || '—'}</td>
+          <td data-label="${I18N.t('common.treatment')}" class="fw-medium">${v.treatment || 'Consultation'}</td>
+          <td data-label="${I18N.t('common.doctor')}" class="cell-muted">${v.doctor || 'Doctor'}</td>
+          <td data-label="${I18N.t('common.status')}">${statusBadge(v.status)}</td>
+        </tr>
+      `).join('');
+    }
 
     const allergiesArea = document.getElementById('allergiesArea');
-    if (patient.allergies && patient.allergies.length) {
+    if (patient && patient.allergies && patient.allergies.length) {
       allergiesArea.innerHTML = `<div class="flex flex-wrap gap-2">${patient.allergies.map(a => `<span class="badge badge-danger">${a}</span>`).join('')}</div>`;
     } else {
       allergiesArea.innerHTML = `<p class="text-sm text-muted">No known allergies.</p>`;
     }
 
     const notesArea = document.getElementById('notesArea');
-    if (patient.notes && patient.notes.length) {
+    if (patient && patient.notes && patient.notes.length) {
       notesArea.innerHTML = patient.notes.map(n => `
         <div class="note-item">
-          <div class="note-item__meta">${n.author} · ${n.date}</div>
+          <div class="note-item__meta">${n.author || 'Doctor'} · ${n.date || '—'}</div>
           <div class="note-item__text">${n.text}</div>
         </div>
       `).join('');

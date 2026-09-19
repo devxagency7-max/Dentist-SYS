@@ -75,11 +75,17 @@
   </div>
 </template>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="../../js/firebase-init.js"></script>
+<script src="../../js/firestore-api.js"></script>
+<script src="../../js/tenant.js"></script>
+<script src="../../js/auth.js"></script>
 <script src="../../js/translations.js"></script>
 <script src="../../js/i18n.js"></script>
 <script src="../../js/theme.js"></script>
 <script src="../../js/icons.js"></script>
-<script src="../../js/mock-data.js"></script>
 <script src="../../js/components.js"></script>
 <script src="../../js/app-shell.js"></script>
 <script>
@@ -87,44 +93,61 @@
   I18N.init(TRANSLATIONS);
   AppShell.init({ active: 'profile', role: 'patient' });
 
-  const PATIENT_ID = 'P-1001';
+  let PATIENT_ID = null;
+
+  async function getActivePatientId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('patientId')) return params.get('patientId');
+    if (localStorage.getItem('patientId')) return localStorage.getItem('patientId');
+    if (auth.currentUser) return auth.currentUser.uid;
+    const patients = await API.getPatients();
+    return patients.length ? patients[0].id : null;
+  }
 
   const content = document.getElementById('pageContent');
   content.innerHTML = document.getElementById('tpl-page').innerHTML.replace("${'{{LOCK_ICON}}'}", ICONS.lock);
   I18N.applyToDOM(content);
 
-  function initials(name) { return name.split(' ').map(n => n[0]).join('').slice(0, 2); }
+  function initials(name) { return (name || '').split(' ').map(n => n[0]).join('').slice(0, 2) || 'P'; }
 
   async function render() {
-    const patient = await MOCK_API.getPatient(PATIENT_ID);
+    PATIENT_ID = await getActivePatientId();
+    if (!PATIENT_ID) return;
+
+    const patient = await API.getPatient(PATIENT_ID);
+    if (!patient) return;
+
+    const color = patient.avatarColor || '2563eb';
     document.getElementById('profileAvatar').textContent = initials(patient.name);
-    document.getElementById('profileAvatar').style.background = `#${patient.avatarColor}22`;
-    document.getElementById('profileAvatar').style.color = `#${patient.avatarColor}`;
-    document.getElementById('profileName').textContent = patient.name;
+    document.getElementById('profileAvatar').style.background = `#${color}22`;
+    document.getElementById('profileAvatar').style.color = `#${color}`;
+    document.getElementById('profileName').textContent = patient.name || 'Patient';
     document.getElementById('profileId').textContent = patient.id;
 
-    document.getElementById('fldName').value = patient.name;
-    document.getElementById('fldPhone').value = patient.phone;
-    document.getElementById('fldEmail').value = patient.email;
+    document.getElementById('fldName').value = patient.name || '';
+    document.getElementById('fldPhone').value = patient.phone || '';
+    document.getElementById('fldEmail').value = patient.email || '';
     document.getElementById('fldDob').value = patient.dob || '';
     document.getElementById('fldAddress').value = patient.address || '';
     document.getElementById('fldEcName').value = patient.emergencyContact?.name || '';
     document.getElementById('fldEcPhone').value = patient.emergencyContact?.phone || '';
   }
 
-  document.getElementById('saveProfileBtn').addEventListener('click', () => {
-    const patient = MOCK_DATA.patients.find(p => p.id === PATIENT_ID);
-    if (!patient) return;
-    patient.name = document.getElementById('fldName').value;
-    patient.phone = document.getElementById('fldPhone').value;
-    patient.email = document.getElementById('fldEmail').value;
-    patient.dob = document.getElementById('fldDob').value;
-    patient.address = document.getElementById('fldAddress').value;
-    patient.emergencyContact = {
-      name: document.getElementById('fldEcName').value,
-      phone: document.getElementById('fldEcPhone').value,
+  document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+    if (!PATIENT_ID) return;
+    const updatedData = {
+      name: document.getElementById('fldName').value,
+      phone: document.getElementById('fldPhone').value,
+      email: document.getElementById('fldEmail').value,
+      dob: document.getElementById('fldDob').value,
+      address: document.getElementById('fldAddress').value,
+      emergencyContact: {
+        name: document.getElementById('fldEcName').value,
+        phone: document.getElementById('fldEcPhone').value,
+      }
     };
-    render();
+    await API.updatePatient(PATIENT_ID, updatedData);
+    await render();
     Toast.success(I18N.t('toast.saved_title'), 'Your profile has been updated.');
   });
 
